@@ -1,0 +1,14 @@
+# Binaries
+bin/
+*.exe
+
+# Go
+go.sum
+*.out
+
+# Temp
+/tmp/
+*.tmp
+
+# OS
+.DS_Store
