@@ -2,10 +2,11 @@ package server
 
 import (
 	"net/http"
-	"prospectsync-server/internal/routes"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+
+	"prospectsync-server/internal/routes"
 )
 
 func (s *Server) RegisterRoutes() http.Handler {
@@ -35,5 +36,5 @@ func (s *Server) HelloWorldHandler(c *gin.Context) {
 }
 
 func (s *Server) healthHandler(c *gin.Context) {
-	c.JSON(http.StatusOK, s.db.Health())
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }

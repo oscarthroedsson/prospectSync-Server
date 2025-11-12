@@ -3,12 +3,13 @@ services:
     image: postgres:latest
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${BLUEPRINT_DB_DATABASE}
-      POSTGRES_USER: ${BLUEPRINT_DB_USERNAME}
-      POSTGRES_PASSWORD: ${BLUEPRINT_DB_PASSWORD}
+      POSTGRES_DB: prospectSync
+      POSTGRES_USER: User
+      POSTGRES_PASSWORD: secret
     ports:
-      - "${BLUEPRINT_DB_PORT}:5432"
+      - "5432:5432"
     volumes:
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
       - psql_volume_bp:/var/lib/postgresql/data
 
 volumes:

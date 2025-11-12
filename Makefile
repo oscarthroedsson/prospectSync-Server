@@ -24,11 +24,11 @@ docker-run:
 
 # Shutdown DB container
 docker-down:
-	@if docker compose down 2>/dev/null; then \
+	@if docker compose down -v 2>/dev/null; then \
 		: ; \
 	else \
 		echo "Falling back to Docker Compose V1"; \
-		docker-compose down; \
+		docker-compose down -v; \
 	fi
 
 # Test the application

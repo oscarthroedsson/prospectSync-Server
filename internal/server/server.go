@@ -18,7 +18,9 @@ type Server struct {
 }
 
 func NewServer() *http.Server {
-	port, err := strconv.Atoi(os.Getenv("PORT"))
+	PORT := os.Getenv("PORTCODE")
+	fmt.Println("PORT: ", PORT)
+	port, err := strconv.Atoi(PORT)
 
 	if err != nil {
 		fmt.Printf("Fel vid konvertering: %v\n", err)
@@ -27,7 +29,7 @@ func NewServer() *http.Server {
 
 	NewServer := &Server{
 		port: port,
-		db:   database.New(),
+		// db:   database.New(),
 	}
 
 	// Declare Server config

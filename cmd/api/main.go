@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -41,10 +43,17 @@ func gracefulShutdown(apiServer *http.Server, done chan bool) {
 
 func main() {
 	apa := server.NewServer()
+	wd, _ := os.Getwd()
+	log.Printf("DEBUG: current working dir = %s\n", wd)
 
-	runka := godotenv.Load("../../.env")
-	if runka != nil {
-		log.Fatal("Error loading .env file")
+	files, _ := ioutil.ReadDir(".")
+	log.Println("DEBUG: files in cwd:")
+	for _, f := range files {
+		log.Println(" -", f.Name())
+	}
+	if err := godotenv.Load(); err != nil {
+		log.Fatal("[main] 🧨 Error loading .env file", err)
+
 	}
 
 	// Create a done channel to signal when the shutdown is complete
