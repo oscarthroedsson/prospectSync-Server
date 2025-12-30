@@ -3,16 +3,16 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/joho/godotenv"
 
+	"prospectsync-server/internal/config"
+	"prospectsync-server/internal/db"
 	"prospectsync-server/internal/server"
 )
 
@@ -42,19 +42,15 @@ func gracefulShutdown(apiServer *http.Server, done chan bool) {
 }
 
 func main() {
+	err := godotenv.Load("../../.env")
+	if err != nil {
+	}
+
+	// initate db once
+	cfg := config.LoadConfig()
+	db.InitDB(cfg.Postgres) // to use → db.GetDB().Query(...)
+
 	apa := server.NewServer()
-	wd, _ := os.Getwd()
-	log.Printf("DEBUG: current working dir = %s\n", wd)
-
-	files, _ := ioutil.ReadDir(".")
-	log.Println("DEBUG: files in cwd:")
-	for _, f := range files {
-		log.Println(" -", f.Name())
-	}
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("[main] 🧨 Error loading .env file", err)
-
-	}
 
 	// Create a done channel to signal when the shutdown is complete
 	done := make(chan bool, 1)
@@ -62,7 +58,7 @@ func main() {
 	// Run graceful shutdown in a separate goroutine
 	go gracefulShutdown(apa, done)
 
-	err := apa.ListenAndServe()
+	err = apa.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		panic(fmt.Sprintf("http server error: %s", err))
 	}

@@ -24,8 +24,14 @@ func NewServer() *http.Server {
 
 	if err != nil {
 		fmt.Printf("Fel vid konvertering: %v\n", err)
-		port = 8080 // Fallback port
+		port = 8080
 	}
+
+	/*
+	    STARTA EVENTBUSSEN OCH ALLA LISTENERS HÄR
+	   	eventbus.Get()        // initierar bussen
+	   	listeners.StartAll()  // detta är det magiska steget!
+	*/
 
 	NewServer := &Server{
 		port: port,

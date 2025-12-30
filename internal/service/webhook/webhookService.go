@@ -104,12 +104,18 @@ func (s *Session) Running() error {
 	})
 }
 
-func (s *Session) Success(data any) error {
+func (s *Session) Success(data any, msg ...string) error {
+	var message *string
+
+	if len(msg) > 0 {
+		message = &msg[0]
+	}
 	return s.send(&models.WebhookPayload{
-		Event:  s.event,
-		Type:   s.typ,
-		Status: models.StatusSuccess,
-		Data:   data,
+		Event:   s.event,
+		Type:    s.typ,
+		Status:  models.StatusSuccess,
+		Data:    data,
+		Message: message,
 	})
 }
 

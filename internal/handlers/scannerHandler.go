@@ -20,8 +20,11 @@ import (
 	"github.com/unidoc/unipdf/v3/extractor"
 	"github.com/unidoc/unipdf/v3/model"
 
+	"prospectsync-server/internal/db"
 	"prospectsync-server/internal/models"
 	"prospectsync-server/internal/service/webhook"
+	mapper "prospectsync-server/internal/utils/Mapper"
+	"prospectsync-server/internal/utils/web"
 )
 
 func ScanPDFHandler(c *gin.Context) {
@@ -210,31 +213,119 @@ func ScanPDFHandler(c *gin.Context) {
 
 func ScanJobPosting(c *gin.Context) {
 	url := c.Query("url")
-	ctx := c.Request.Context()
+	userID := c.Request.Header.Get("X-User-ID")
 	client := openai.NewClient(os.Getenv("OPENAI_API_KEY"))
-	schemaData, err := os.ReadFile("../../internal/ai/schemas/jobposting.json")
+	schemaData, err := os.ReadFile("internal/ai/schemas/jobposting.json")
 
-	getResp, err := http.Get(url)
-
+	hook, err := webhook.Initiate(models.EventScan, models.TypeJobPosting)
 	if err != nil {
-		fmt.Println("error gettin the url")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Error getting url content"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Could not initiate webhook session",
+			"details": err.Error(),
+		})
 		return
 	}
 
-	defer getResp.Body.Close()
+	var createdById *string
+	if userID != "" {
+		createdById = &userID
+	}
 
-	bodyByte, err := io.ReadAll(getResp.Body)
-	htmlContent := string(bodyByte)
+	rows, err := db.GetDB().Query(
+		"SELECT * FROM job_postings WHERE \"jobPostingUrl\" = $1", // dubbelcitat → case-sensitive
+		url,
+	)
+
+	if err != nil {
+		fmt.Println("⚠️ DB QUERY ERROR ", err)
+	}
+
+	if len(rows) > 0 {
+		row := rows[0]
+
+		rowJSON, err := json.Marshal(row)
+		if err != nil {
+			fmt.Println("🔴 Could not marshal row to JSON:", err)
+			log.Fatal(err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Could not marshal row to JSON:",
+				"details": err.Error(),
+			})
+			return
+		}
+
+		var job models.JobPosting
+		if err := json.Unmarshal(rowJSON, &job); err != nil {
+			fmt.Println("🔴 Could not map job posting data:", err)
+			log.Fatal(err)
+
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Could not map job posting data",
+				"details": err.Error(),
+			})
+			return
+		}
+
+		jobPosting, err := mapper.JobPostingMapper(rowJSON, row["jobPostingUrl"].(string), createdById)
+
+		if err != nil {
+			fmt.Println("🔴 Could not map job posting data:", err)
+			log.Fatal(err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Could not map job posting data",
+				"details": err.Error(),
+			})
+			return
+		}
+
+		fmt.Println("🔵 Job posting already exists in DB, skipping scan and returning existing")
+		hook.Success(jobPosting, "Good news! We have already scanned this job posting")
+		c.JSON(http.StatusAccepted, gin.H{
+			"status":  "accepted",
+			"message": "Good news! We have already scanned this job posting",
+			"url":     url,
+		})
+
+		return
+	}
+
+	if err != nil {
+		fmt.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read schemas"})
+		return
+	}
+
+	// GET HTML CONTENT ------------------------------------------------
+	htmlContent, err := web.RetriveDOM(url, 30)
+	if err != nil {
+		fmt.Println("❌ HTTP GET FAILED:", err)
+		fmt.Println("error gettin the url")
+		hook.Error("Could not scan the web page. Please copy the posting text and provide it manually; this will guarantee it works.")
+
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Error getting url content"})
+		return
+	}
+	fmt.Println("✅ 5. HTTP GET successful")
 	cleanedText := extractText(htmlContent)
+
+	fmt.Println("🧹 CLEAN TEXT")
+	fmt.Println(cleanedText)
+	// GET HTML CONTENT ------------------------------------------------
 
 	var schemaObj map[string]interface{}
 	err = json.Unmarshal(schemaData, &schemaObj)
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse schema"})
 		return
 	}
 
+	/*
+		TODO - fix the following find errors
+		→ It provides null on keys where is required
+		→ It could not understand that lang should be x y when it stood in the text
+		→
+	*/
 	tools := []openai.Tool{
 		{
 			Type: openai.ToolTypeFunction,
@@ -249,20 +340,12 @@ func ScanJobPosting(c *gin.Context) {
 		},
 	}
 
-	hook, err := webhook.Initiate(models.EventScan, models.TypeJobPosting)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Could not initiate webhook session",
-			"details": err.Error(),
-		})
-		return
-	}
-
 	config := openai.ChatCompletionRequest{
-		Model: openai.GPT5,
+		Model: openai.GPT5Nano,
 		Messages: []openai.ChatCompletionMessage{
 			{
 				Role: openai.ChatMessageRoleUser,
+
 				Content: `
                  **ROLL:** <Roll>
                         Du är en specialist på strukturerad datautvinning (Data Extraction Expert) med fokus på **Jobbannonser**.
@@ -278,68 +361,109 @@ func ScanJobPosting(c *gin.Context) {
                     2. Utdata MÅSTE vara en felfri JSON-sträng som validerar mot det givna schemat.
                     3. Hallucination förbjuden: Du FÅR INTE lägga till information som inte uttryckligen finns i källtexten. Om ett fält saknas, fyll i det med **null**, en tom sträng (**""**), eller en tom array (**[]**) enligt schemat.
                     4. Datum & Tid: Följ det strikta formatet **ISO 8601** (t.ex. YYYY-MM-DDTHH:MM:SSZ) för fälten **endsAt, createdAt** och **updatedAt**. Om tid saknas, använd **T00:00:00Z**.
-                    5. Jobbeskrivning: Använd texten i fältet **jobDescription** för att generera en strukturerad och välformulerad text i Markdown-format för fältet **markdownText**.
-					6. Alla egenskaper och kunskaper som efterfrågas av jobb sökaren ska läggas under applicantQualities. Personliga egenskaper och kod relaterade kunskaper. Två ordade egenskaper ska ha _ istället för mellanslag
-                    7. Följ ALLA regler i det medföljande JSON-schemat (i Tools).
+                    5. Markdown: Använd texten för att generera en strukturerad och välformulerad text i Markdown-format för fältet **markdownText**.
+					6. JobDescription: Sammanfatta en kort [300 karaktärer MAX] sammanfattning av arbetsrollen som sinch söker. 
+					7. Alla egenskaper och kunskaper som efterfrågas av jobb sökaren ska läggas under applicantQualities. Personliga egenskaper och kod relaterade kunskaper. Två ordade egenskaper ska ha _ istället för mellanslag
+					8. Du ska använda samma språk som det görs i texten inom <CONTENT> 
+                    9. Följ ALLA regler i det medföljande JSON-schemat (i Tools).
                     </Rules>
                     
                     
                     --- RÅTEXT FRÅN JOBBANNONS ATT ANALYSERA ---
-                    
-                    """` + cleanedText + `"""`,
+                    <Content>
+					` + cleanedText + `
+					</Content>
+					`,
 			},
 		},
 		Tools: tools,
 	}
 
-	fmt.Println("✅ Should send accepted")
+	// Everything is validated, tell clients we will start
 	c.JSON(http.StatusAccepted, gin.H{
 		"status":  "accepted",
-		"message": "Jobbscanning har startat",
+		"message": "Jobbscanning has started",
 		"url":     url,
 	})
 
+	// Start AI operation background service
 	go func() {
+		fmt.Println("🚗 INSIDE ROUTIN")
+		ctx := context.Background()
+
+		// Send START notifikation to client (webhook)
 		if err := hook.Start(); err != nil {
-			log.Printf("[ScanJobPosting] webhook start misslyckades: %v", err)
+			log.Printf("🚨 [ScanJobPosting] webhook start misslyckades: %v", err)
 		}
 
+		// Run AI operation
 		aiResp, err := client.CreateChatCompletion(ctx, config)
 		if err != nil {
-			fmt.Println("[ScanJobPosting] AI CHAT ERROR: ", err.Error())
+			fmt.Println("🌺 [ScanJobPosting] AI CHAT ERROR: ", err)
 			hook.Error("Scanning job posting failed")
 			return
 		}
 
 		var jobPosting *models.JobPosting
-		if len(aiResp.Choices) > 0 {
 
+		fmt.Println("CHOISES", aiResp.Choices)
+		if len(aiResp.Choices) > 0 {
+			fmt.Println("→ choices: ", aiResp.Choices)
 			choice := aiResp.Choices[0]
 			if len(choice.Message.ToolCalls) > 0 {
 				toolCall := choice.Message.ToolCalls[0]
 				fmt.Println("Tool call name:", toolCall.Function.Name)
 				args := toolCall.Function.Arguments
 
+				// 🛑 DELETE THIS ======
+				var prettyJSON map[string]interface{}
+				if err := json.Unmarshal([]byte(args), &prettyJSON); err != nil {
+					fmt.Printf("AI JSON (rå, oformaterad):\n%s\n", args)
+				} else {
+					formatted, _ := json.MarshalIndent(prettyJSON, "", "  ")
+					fmt.Printf("AI JSON (formaterad):\n%s\n", string(formatted))
+				}
+				// ==========================================
+
 				// Unmarshal with error handling
 				if err := json.Unmarshal([]byte(args), &jobPosting); err != nil {
-					go func() { hook.Error("Kunde inte tolka AI-svar") }()
+					// Sends Error notification to Client (webhook)
+					fmt.Println("❌❌❌ Unmarshal error:", err)
+					hook.Error("Kunde inte tolka AI-svar")
 					return
 				}
 
-				jobPostingJSON, _ := json.MarshalIndent(jobPosting, "", "  ")
-				fmt.Println(string(jobPostingJSON))
+				// jobPosting.JobPostingUrl = url
+				// jobPosting.CreatedAt = today
+				// jobPosting.UpdatedAt = today
+				// jobPosting.CreatedJobPosting = models.CreatedJobPosting{
+				// 	CreatedByType: "system",
+				// 	CreatedById:   createdById,
+				// 	Source:        utils.Ptr("url"),
+				// 	ImportedAt:    utils.Ptr(today.Format(time.RFC3339)),
+				// }
 
-				go func() {
-					if err := hook.Success(jobPosting); err != nil {
-						log.Printf("webhook success misslyckades: %v", err)
-					}
-				}()
+				jobPosting, err := mapper.JobPostingMapper([]byte(args), url, createdById)
+				if err != nil {
+					fmt.Println("❌❌❌ JobPostingMapper error:", err)
+					hook.Error("Kunde inte mappa jobbannonsdata")
+					return
+				}
+				// jobPostingJSON, _ := json.MarshalIndent(jobPosting, "", "  ")
+
+				// ==========================================
+
+				// Sends success if it succeded
+				if err := hook.Success(jobPosting); err != nil {
+					log.Printf("webhook success misslyckades: %v", err)
+				}
+
 				return
 			}
+			fmt.Println("❌ no choices")
 		}
 
 	}()
-
 }
 
 func cleanUpText(text string) string {
@@ -354,13 +478,13 @@ func cleanUpText(text string) string {
 }
 
 func extractText(htmlContent string) string {
-	// Skapa en dokumentläsare från HTML-strängen
+
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(htmlContent))
 	if err != nil {
+		fmt.Println("⚠️🚨 ERROR [extractText]: ", err)
 		return ""
 	}
 
-	// Ta bort script, style och andra onödiga element
 	doc.Find("script, style, noscript, iframe, svg").Remove()
 
 	// Extrahera text
@@ -368,6 +492,8 @@ func extractText(htmlContent string) string {
 
 	// Rensa upp texten
 	text = cleanUpText(text)
+	fmt.Println("📝 Text length AFTER cleanup:", len(text))
+	fmt.Println("📝 First 500 chars AFTER cleanup:", text[:min(500, len(text))])
 
 	return text
 }

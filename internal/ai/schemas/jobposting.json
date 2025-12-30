@@ -5,13 +5,38 @@
       "type": "string",
       "description": "The title of the job posting"
     },
-    "company": {
+    "companyName": {
       "type": "string",
-      "description": "Company name that posted the job posting"
+      "description": "Name of the company that posted the job post"
     },
     "companyLogo": {
       "type": ["string", "null"],
       "description": "Absolute url for the company logo, if none set null"
+    },
+    "createdJobPosting": {
+      "type": "object",
+      "description": "Information of who created the jobposting",
+      "properties": {
+        "createdByType": {
+          "type": "string",
+          "enum": ["system"]
+        },
+        "createdById": {
+          "type": ["null"],
+          "enum": ["null"]
+        },
+        "source": {
+          "type": ["string", "null"],
+          "enum": ["linkedin", "file_import", "api", "url"],
+          "description": "Where the post is comming from"
+        },
+        "importedAt": {
+          "type": ["null"],
+          "enum": ["null"],
+          "description": "Date and time when the job posting was created"
+        }
+      },
+      "required": ["createdByType", "createdById", "source", "importedAt"]
     },
     "jobPostingUrl": {
       "type": "string",
@@ -19,7 +44,7 @@
     },
     "jobDescription": {
       "type": "string",
-      "description": "Text that explains the job the company is posting about"
+      "description": "short text that provides a summary of the specific role the applicatnt will take on"
     },
     "markdownText": {
       "type": "string",
@@ -42,12 +67,10 @@
           },
           "level": {
             "type": "string",
-            "description": "",
-            "enum": [""]
+            "description": ""
           }
         }
-      },
-      "examples": ["swedish", "english"]
+      }
     },
     "jobRequirements": {
       "type": "array",
@@ -67,7 +90,7 @@
     },
     "applicantQualities": {
       "type": "array",
-      "description": "Desired personal qualities for the applicant",
+      "description": "Only required qualities mentioned. One-worded snake_case items. Do not include merits.",
       "items": {
         "type": "string",
         "description": "One quality that should be one worded"
@@ -109,7 +132,7 @@
         }
       }
     },
-    "work_mode": {
+    "workArrengment": {
       "type": "string",
       "description": "Detailed description of the job's working mode, indicating both location flexibility and work hours arrangement",
       "enum": [
@@ -127,8 +150,8 @@
     "employmentType": {
       "type": "string",
       "description": "Type of employment in terms of working hours and contract type",
-      "enum": ["full time", "part time", "contract", "temporary", "internship", "freelance"],
-      "examples": ["full time", "part time", "contract"]
+      "enum": ["full_time", "part_time", "contract", "temporary", "internship", "freelance"],
+      "examples": ["full_time", "part_time", "contract"]
     },
     "salary": {
       "type": ["object", "null"],
@@ -190,7 +213,7 @@
   },
   "required": [
     "title",
-    "company",
+    "companyName",
     "markdownText",
     "language",
     "jobRequirements",
@@ -201,8 +224,9 @@
     "createdAt",
     "updatedAt",
     "location",
-    "work_arrangement",
+    "workArrengment",
     "employmentType",
-    "salary"
+    "salary",
+    "createdJobPosting"
   ]
 }

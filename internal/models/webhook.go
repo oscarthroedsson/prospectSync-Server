@@ -34,6 +34,6 @@ type WebhookPayload struct {
 	Type      WebhookType   `json:"type"`
 	Data      any           `json:"data,omitempty"`
 	Error     string        `json:"error,omitempty"`
-	Message   string        `json:"message,omitempty"`
+	Message   *string       `json:"message,omitempty"`
 	Timestamp string        `json:"timestamp"`
 }
