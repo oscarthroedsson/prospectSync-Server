@@ -27,13 +27,14 @@ const (
 	TypeResume     WebhookType = "resume"
 )
 
-// === PAYLOAD ===
+// === PAYLOAD ===3
 type WebhookPayload struct {
-	Status    WebhookStatus `json:"status"`
-	Event     WebhookEvent  `json:"event"`
-	Type      WebhookType   `json:"type"`
-	Data      any           `json:"data,omitempty"`
-	Error     string        `json:"error,omitempty"`
-	Message   *string       `json:"message,omitempty"`
-	Timestamp string        `json:"timestamp"`
+	PayloadOwner *string       `json:"payloadOwner"`
+	Status       WebhookStatus `json:"status"`
+	Event        WebhookEvent  `json:"event"`
+	Type         WebhookType   `json:"type"`
+	Data         any           `json:"data,omitempty"`
+	Error        string        `json:"error,omitempty"`
+	Message      *string       `json:"message,omitempty"`
+	Timestamp    string        `json:"timestamp"`
 }

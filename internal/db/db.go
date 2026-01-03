@@ -22,7 +22,19 @@ var (
 // InitDB skapar anslutningen en gång
 func InitDB(cfg *config.PostgresConfig) *DB {
 	once.Do(func() {
-		pool, err := pgxpool.New(context.Background(), cfg.URL)
+		// Parsar pool-konfiguration från URL
+		poolConfig, err := pgxpool.ParseConfig(cfg.URL)
+		if err != nil {
+			log.Fatalf("Unable to parse database URL: %v", err)
+		}
+
+		// Säkerställ att connections roteras ofta för att undvika stale prepared statements
+		poolConfig.MaxConnLifetime = 0 // Connections återanvänds inte längre än detta
+		poolConfig.MaxConnIdleTime = 0
+		poolConfig.MaxConns = 10 // Anpassa efter behov
+
+		// Skapa poolen
+		pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
 		if err != nil {
 			log.Fatalf("Unable to connect to database: %v", err)
 		}

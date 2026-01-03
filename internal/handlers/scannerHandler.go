@@ -20,7 +20,7 @@ import (
 	"github.com/unidoc/unipdf/v3/extractor"
 	"github.com/unidoc/unipdf/v3/model"
 
-	"prospectsync-server/internal/db"
+	"prospectsync-server/internal/db/repositories"
 	"prospectsync-server/internal/models"
 	"prospectsync-server/internal/service/webhook"
 	mapper "prospectsync-server/internal/utils/Mapper"
@@ -217,7 +217,7 @@ func ScanJobPosting(c *gin.Context) {
 	client := openai.NewClient(os.Getenv("OPENAI_API_KEY"))
 	schemaData, err := os.ReadFile("internal/ai/schemas/jobposting.json")
 
-	hook, err := webhook.Initiate(models.EventScan, models.TypeJobPosting)
+	hook, err := webhook.Initiate(models.EventScan, models.TypeJobPosting, &userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Could not initiate webhook session",
@@ -231,55 +231,20 @@ func ScanJobPosting(c *gin.Context) {
 		createdById = &userID
 	}
 
-	rows, err := db.GetDB().Query(
-		"SELECT * FROM job_postings WHERE \"jobPostingUrl\" = $1", // dubbelcitat → case-sensitive
-		url,
-	)
-
+	repo := repositories.Methods()
+	res, err := repo.ShowJobPosting(url)
 	if err != nil {
 		fmt.Println("⚠️ DB QUERY ERROR ", err)
 	}
+	// ƒ Pretty print res
+	b, _ := json.MarshalIndent(res, "", "  ")
+	fmt.Println("📦 JobPosting from repo:")
+	fmt.Println(string(b))
 
-	if len(rows) > 0 {
-		row := rows[0]
-
-		rowJSON, err := json.Marshal(row)
-		if err != nil {
-			fmt.Println("🔴 Could not marshal row to JSON:", err)
-			log.Fatal(err)
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Could not marshal row to JSON:",
-				"details": err.Error(),
-			})
-			return
-		}
-
-		var job models.JobPosting
-		if err := json.Unmarshal(rowJSON, &job); err != nil {
-			fmt.Println("🔴 Could not map job posting data:", err)
-			log.Fatal(err)
-
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Could not map job posting data",
-				"details": err.Error(),
-			})
-			return
-		}
-
-		jobPosting, err := mapper.JobPostingMapper(rowJSON, row["jobPostingUrl"].(string), createdById)
-
-		if err != nil {
-			fmt.Println("🔴 Could not map job posting data:", err)
-			log.Fatal(err)
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Could not map job posting data",
-				"details": err.Error(),
-			})
-			return
-		}
+	if res != nil {
 
 		fmt.Println("🔵 Job posting already exists in DB, skipping scan and returning existing")
-		hook.Success(jobPosting, "Good news! We have already scanned this job posting")
+		hook.Success(res, "Good news! We have already scanned this job posting")
 		c.JSON(http.StatusAccepted, gin.H{
 			"status":  "accepted",
 			"message": "Good news! We have already scanned this job posting",

@@ -17,8 +17,8 @@ type JobPosting struct {
 	CreatedAt          string            `json:"createdAt"`
 	UpdatedAt          string            `json:"updatedAt"`
 	Location           *Location         `json:"location"` // nullable
-	WorkArrengment     string            `json:"workArrengment"`
-	EmploymentType     string            `json:"employmentType"`
+	WorkArrengment     *string           `json:"workArrengment"`
+	EmploymentType     *string           `json:"employmentType"`
 	Salary             *Salary           `json:"salary"` // nullable
 	CreatedJobPosting  CreatedJobPosting `json:"createdJobPosting"`
 }

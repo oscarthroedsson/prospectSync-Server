@@ -18,15 +18,16 @@ import (
 )
 
 type Session struct {
-	baseURL    string
-	secret     string
-	event      models.WebhookEvent
-	typ        models.WebhookType
-	fullURL    string
-	httpClient *http.Client
+	baseURL      string
+	secret       string
+	event        models.WebhookEvent
+	typ          models.WebhookType
+	fullURL      string
+	httpClient   *http.Client
+	payloadOwner *string
 }
 
-func Initiate(event models.WebhookEvent, eventType models.WebhookType) (*Session, error) {
+func Initiate(event models.WebhookEvent, eventType models.WebhookType, payloadOwner *string) (*Session, error) {
 	base := strings.TrimSuffix(os.Getenv("WEBHOOK_BASE_URL"), string(event))
 	secret := os.Getenv("WEBHOOK_SECRET")
 
@@ -36,12 +37,13 @@ func Initiate(event models.WebhookEvent, eventType models.WebhookType) (*Session
 
 	fullURL := fmt.Sprintf("%s/%s", base, event)
 	return &Session{
-		baseURL:    base,
-		secret:     secret,
-		event:      event,
-		typ:        eventType,
-		fullURL:    fullURL,
-		httpClient: &http.Client{Timeout: 10 * time.Second},
+		baseURL:      base,
+		secret:       secret,
+		event:        event,
+		typ:          eventType,
+		fullURL:      fullURL,
+		httpClient:   &http.Client{Timeout: 10 * time.Second},
+		payloadOwner: payloadOwner,
 	}, nil
 }
 
@@ -49,6 +51,9 @@ func (s *Session) send(payload *models.WebhookPayload) error {
 	payload.Event = s.event
 	payload.Type = s.typ
 	payload.Timestamp = time.Now().UTC().Format(time.RFC3339Nano) // date is a ref for GO to format timestamp
+	if s.payloadOwner != nil {
+		payload.PayloadOwner = s.payloadOwner
+	}
 
 	body, err := json.Marshal(payload)
 
