@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -30,6 +31,114 @@ func Methods() *JobPostingRepository {
 // PUBLIC API
 //
 
+// FindExpiringSoon returns job postings that expire within the specified number of days
+// daysUntilExpiration: number of days until expiration (e.g., 3 for jobs expiring in 3 days)
+func (r *JobPostingRepository) FindExpiringSoon(daysUntilExpiration int) ([]*models.JobPosting, error) {
+	rows, err := r.pool.Query(context.Background(), `
+		SELECT
+			"id",
+			"title",
+			"companyName",
+			"companyLogo",
+			"jobPostingUrl",
+			"jobDescription",
+			"markdownText",
+			"status",
+			"endsAt",
+			"createdAt",
+			"updatedAt"
+		FROM job_postings
+		WHERE "endsAt" IS NOT NULL
+			AND "endsAt"::date >= CURRENT_DATE
+			AND "endsAt"::date <= CURRENT_DATE + INTERVAL '1 day' * $1
+			AND "status" != 'expired'
+		ORDER BY "endsAt" ASC
+	`, daysUntilExpiration)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var jobs []*models.JobPosting
+	for rows.Next() {
+		var job models.JobPosting
+		err := rows.Scan(
+			&job.Id,
+			&job.Title,
+			&job.CompanyName,
+			&job.CompanyLogo,
+			&job.JobPostingUrl,
+			&job.JobDescription,
+			&job.MarkdownText,
+			&job.Status,
+			&job.EndsAt,
+			&job.CreatedAt,
+			&job.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		jobs = append(jobs, &job)
+	}
+
+	return jobs, rows.Err()
+}
+
+// FindExpired returns job postings that have expired (endsAt is in the past)
+func (r *JobPostingRepository) FindExpired() ([]*models.JobPosting, error) {
+	// Use today's date as parameter to avoid prepared statement cache issues
+	today := time.Now().Format("2006-01-02")
+	rows, err := r.pool.Query(context.Background(), `
+		SELECT
+			"id",
+			"title",
+			"companyName",
+			"companyLogo",
+			"jobPostingUrl",
+			"jobDescription",
+			"markdownText",
+			"status",
+			"endsAt",
+			"createdAt",
+			"updatedAt"
+		FROM job_postings
+		WHERE "endsAt" IS NOT NULL
+			AND "endsAt"::date < $1::date
+			AND "status" != 'expired'
+		ORDER BY "endsAt" DESC
+	`, today)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var jobs []*models.JobPosting
+	for rows.Next() {
+		var job models.JobPosting
+		err := rows.Scan(
+			&job.Id,
+			&job.Title,
+			&job.CompanyName,
+			&job.CompanyLogo,
+			&job.JobPostingUrl,
+			&job.JobDescription,
+			&job.MarkdownText,
+			&job.Status,
+			&job.EndsAt,
+			&job.CreatedAt,
+			&job.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		jobs = append(jobs, &job)
+	}
+
+	return jobs, rows.Err()
+}
+
 // JobPosting_Show returns a fully hydrated JobPosting aggregate by jobPostingUrl
 func (r *JobPostingRepository) ShowJobPosting(url string) (*models.JobPosting, error) {
 	job, err := r.getRootByURL(url)
@@ -52,10 +161,7 @@ func (r *JobPostingRepository) ShowJobPosting(url string) (*models.JobPosting, e
 	return job, nil
 }
 
-//
 // ROOT
-//
-
 func (r *JobPostingRepository) getRootByURL(url string) (*models.JobPosting, error) {
 	row := r.pool.QueryRow(context.Background(), `
 		SELECT

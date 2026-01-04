@@ -24,7 +24,8 @@ func (s *Server) RegisterRoutes() http.Handler {
 	scanGroup := r.Group("/api/scan")
 	routes.ScanRoutes(scanGroup)
 
-	r.Group("/api/analyze")
+	analyzeGroup :=r.Group("/api/analyze")
+	routes.AnalyzeRoutes(analyzeGroup)
 	return r
 }
 

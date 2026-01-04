@@ -5,6 +5,7 @@ import (
 	"log"
 	"sync"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"prospectsync-server/internal/config"
@@ -32,6 +33,9 @@ func InitDB(cfg *config.PostgresConfig) *DB {
 		poolConfig.MaxConnLifetime = 0 // Connections återanvänds inte längre än detta
 		poolConfig.MaxConnIdleTime = 0
 		poolConfig.MaxConns = 10 // Anpassa efter behov
+
+		// Inaktivera prepared statement cache för att undvika "already exists" errors
+		poolConfig.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
 		// Skapa poolen
 		pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
