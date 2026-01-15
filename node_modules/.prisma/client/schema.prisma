@@ -1,0 +1,686 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js" // ← 
+  // output   = "../generated/prisma" // no output → the output will be in node_modules
+}
+
+/**
+ * Bad Docs - Invest time when application gets to advanced
+ */
+// generator zod {
+//   provider = "prisma-zod-generator"
+//   output   = "../lib/Schemas/generated"
+// }
+
+datasource db {
+  provider = "postgresql"
+  //@ts-ignore
+  url      = env("DATABASE_PRODUCTION_URL")
+}
+
+// ================ ENUMS ================
+enum WorkArrangementEnum {
+  remote_full_time
+  remote_part_time
+  hybrid_full_time
+  hybrid_part_time
+  onsite_full_time
+  onsite_part_time
+  flexible_full_time
+  flexible_part_time
+}
+
+enum EmploymentEnum {
+  full_time
+  part_time
+  contract
+  temporary
+  internship
+  freelance
+}
+
+enum SalaryTypeEnum {
+  range
+  fixed
+  competitive
+  negotiable
+  not_specified
+}
+
+enum SalaryPeriodEnum {
+  monthly
+  annually
+  hourly
+  weekly
+}
+
+enum CreatedByEnum {
+  system // t.ex. AI
+  user // normal users (job seeker / recruiter)
+  admin // administratör / moderator
+}
+
+enum JobSourceEnum {
+  linkedin
+  file_import
+  api
+  url
+}
+
+enum ProviderEnum {
+  github
+  google
+  linkedin
+}
+
+enum UserRoleEnum {
+  APPLICANT
+  RECRUITER
+  COMPANY_ADMIN
+}
+
+enum StatusUserJobProcesses {
+  not_started
+  started
+  waiting_for_reply
+  interview_booked
+  interview_completed
+  offer_received
+  rejected
+  hired
+  archived
+}
+
+// ========================================================================
+
+/**
+ * TODO:
+ * We need to expand this table to multiple tables.
+ * We should be able to create a whole profile on the user
+ * → Qualities
+ * → Knowledge areas
+ * → Work experiances
+ * → Educations
+ * → Phone number
+ * → Where they live
+ * → Maybe more
+ * ☝🏼 This is or later when before we write logic of creating a RESUME or Cover letter
+ */
+model User {
+  id            String  @id @default(cuid())
+  name          String?
+  email         String? @unique
+  emailVerified String?
+  image         String?
+
+  // Role      UserRole  @default(APPLICANT) → Bör detta läggas till?! 
+  providers    Provider[]
+  applications JobApplicants[] // Will show every job process the user has initiated (not necessarily started)
+  userProcess  UserProcess[] // Will show every process they have started not necesserliy in
+
+  company   Company? @relation("CompanyUsers", fields: [companyId], references: [id])
+  companyId String?
+
+  createdJobPostings       CreatedJobPosting[]       @relation("UserCreatedJobPostings")
+  userPipelineStepComments UserPipelineStepComment[]
+  processSteps             ProcessStep[]
+  processes                Process[]
+  todos                    Todo[]
+
+  @@map("users")
+}
+
+/// Login method (Google, GitHub, etc.) – stores external ID + tokens
+model Provider {
+  id                String       @id @default(cuid())
+  userId            String
+  provider          ProviderEnum
+  providerAccountId String // external account ID
+
+  // Separerad token-information
+  token Token?
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("providers")
+}
+
+model Token {
+  id            String  @id @default(cuid())
+  providerId    String  @unique
+  refresh_token String? @db.Text
+  access_token  String? @db.Text
+  expires_at    Int?
+  token_type    String?
+  scope         String?
+  id_token      String? @db.Text
+  session_state String?
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@map("Tokens")
+}
+
+// ============================================
+// COMPANY (för rekryterare som tillhör företag)
+// ============================================
+
+model Company {
+  id          String       @id @default(cuid())
+  name        String
+  logo        String?
+  users       User[]       @relation("CompanyUsers") // matchar relation-namnet i User
+  jobPostings JobPosting[]
+}
+
+// ==============================================================
+// JOB POSTING – 100% INDEPENDENT
+// ==============================================================
+
+model JobPosting {
+  id             String  @id @default(cuid())
+  title          String
+  companyName    String
+  companyLogo    String?
+  jobPostingUrl  String  @unique
+  jobDescription String  @db.Text
+  markdownText   String  @db.Text
+  status         String  @default("active")
+  endsAt         String? // ISO string
+  createdAt      String  @default(dbgenerated("now()"))
+  updatedAt      String  @default(dbgenerated("now()"))
+
+  language           JobPostingLanguage[]
+  jobRequirements    JobPostingRequirement[]
+  merits             JobPostingMerit[]
+  applicantQualities JobPostingApplicantQuality[]
+  location           JobPostingLocation?
+  workArrengment     JobPostingWorkArrengment?
+  employmentType     JobPostingEmploymentType?
+  salary             JobPostingSalary?
+  createdJobPosting  CreatedJobPosting?
+
+  company   Company? @relation(fields: [companyId], references: [id])
+  companyId String?
+
+  userJobApplications JobApplicants[] // Tracks who have searched this job
+  userProcesses       UserProcess[]
+
+  @@index([status, endsAt, companyId, title])
+  @@map("job_postings")
+}
+
+model JobPostingLanguage {
+  id           String  @id @default(cuid())
+  jobPostingId String
+  language     String
+  level        String?
+
+  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+
+  @@map("job_posting_languages")
+}
+
+model JobPostingRequirement {
+  id           String @id @default(cuid())
+  jobPostingId String
+  requirement  String
+
+  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+
+  @@map("job_posting_requirements")
+}
+
+model JobPostingMerit {
+  id           String @id @default(cuid())
+  jobPostingId String
+  merit        String
+
+  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+
+  @@map("job_posting_merits")
+}
+
+model JobPostingApplicantQuality {
+  id           String @id @default(cuid())
+  jobPostingId String
+  quality      String
+
+  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+
+  @@map("job_posting_applicant_qualities")
+}
+
+model JobPostingLocation {
+  id           String @id @default(cuid())
+  jobPostingId String @unique
+
+  city     String?
+  region   String?
+  country  String  @default("Sverige")
+  isRemote Boolean @default(false)
+  lat      Float?
+  lng      Float?
+
+  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+
+  @@index([city])
+  @@index([region])
+  @@index([country])
+  @@index([isRemote])
+  @@map("job_posting_locations")
+}
+
+model JobPostingWorkArrengment {
+  id           String @id @default(cuid())
+  jobPostingId String @unique
+  mode         String
+
+  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+
+  @@map("job_posting_work_modes")
+}
+
+model JobPostingEmploymentType {
+  id           String @id @default(cuid())
+  jobPostingId String @unique
+  type         String
+
+  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+
+  @@map("job_posting_employment_types")
+}
+
+model JobPostingSalary {
+  id           String @id @default(cuid())
+  jobPostingId String @unique
+
+  type     String
+  amount   String?
+  currency String   @default("SEK")
+  period   String   @default("monthly")
+  benefits String[]
+  notes    String?
+
+  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+
+  @@index([type])
+  @@index([period])
+  @@map("job_posting_salaries")
+}
+
+/**
+ * Handle
+ * Did we scrape it by our self or via user or did a recruiter create a job posting
+ */
+model CreatedJobPosting {
+  id           String     @id @default(cuid())
+  jobPostingId String     @unique
+  jobPosting   JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+
+  createdByType CreatedByEnum
+  createdById   String?
+  createdBy     User?         @relation("UserCreatedJobPostings", fields: [createdById], references: [id])
+
+  source     JobSourceEnum?
+  importedAt DateTime?
+
+  @@map("created_job_postings")
+}
+
+// ==============================================================
+// WHO APPLIED TO THE JOB
+// ==============================================================
+
+/**
+ * Applications for a specific job posting.
+ * Help us with
+ * → Get all users for a specific job posting
+ * → Do analytics of a specific job posting
+ */
+model JobApplicants {
+  id           String @id @default(cuid())
+  userId       String
+  jobPostingId String
+
+  status    String  @default("Skickat")
+  appliedAt String
+  gotJob    Boolean @default(false)
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, jobPostingId])
+  @@map("job_applicants")
+}
+
+/**
+ * Connect a Process with a jobPosting
+ */
+model UserProcess {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  status      StatusUserJobProcesses @default(not_started)
+  startedAt   String?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  completedAt String?
+
+  steps UserProcessStep[]
+
+  jobPostingId String
+  jobPosting   JobPosting? @relation(fields: [jobPostingId], references: [id])
+
+  processId String?
+  process   Process? @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  todos TodoUserProcess[]
+
+  @@unique([userId, jobPostingId])
+  @@map("user_processes")
+}
+
+/// User’s progress on a specific step
+model UserProcessStep {
+  id            String  @id @default(cuid())
+  userProcessId String
+  stepId        String?
+
+  isExecuted Boolean @default(false)
+  executedAt String? // will be null if not executed
+
+  comments UserPipelineStepComment[]
+
+  // Should not be used in include
+
+  process UserProcess  @relation(fields: [userProcessId], references: [id], onDelete: Cascade)
+  step    ProcessStep? @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@unique([stepId])
+  @@unique([userProcessId, stepId])
+  @@map("user_process_step")
+}
+
+/// Comment on a pipeline step
+model UserPipelineStepComment {
+  id                 String @id @default(cuid())
+  userPipelineStepId String
+  userId             String
+
+  comment   String @db.Text
+  createdAt String
+
+  user User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  step UserProcessStep @relation(fields: [userPipelineStepId], references: [id], onDelete: Cascade)
+
+  @@map("user_process_comments")
+}
+
+// ==============================================================
+// PIPELINE TEMPLATES
+
+// ==============================================================
+
+/**
+ * Collection of reusable pipelines (e.g. "Standard Job Application Pipeline")
+ * One template can be used by many users and many UserJobProcess records.
+ */
+model Process {
+  id String @id @default(cuid()) /// Primary key
+
+  name        String /// Display name in UI (e.g. "Default Pipeline")
+  description String? @db.Text /// Optional longer description
+  icon        String? /// Lucide icon name for UI
+
+  ownerId String? @default("system") //   system or userID
+  user    User?   @relation(fields: [ownerId], references: [id])
+
+  isTemplate Boolean
+  isPublic   Boolean @default(false)
+
+  /// All steps that belong to this pipeline template
+  steps ProcessStep[]
+
+  /// All user processes that are currently using this process
+  processes UserProcess[]
+
+  @@unique([id, ownerId])
+  @@map("process_templates")
+}
+
+/**
+ * One step inside a PipelineTemplate (the reusable definition)
+ * This is the "master" version – never changed by a user directly.
+ */
+model ProcessStep {
+  id        String  @id @default(cuid()) /// Primary key
+  processId String /// FK to PipelineTemplate
+  process   Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String
+
+  icon  String? // Optional Lucide icon
+  order Int // order inside the pipeline
+
+  // 
+  triggers TriggerDefinition[]
+  actions  ActionDefinition[]
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  /// All user-specific instances of this step (one per UserJobProcess)
+  userProcessSteps UserProcessStep[]
+
+  @@map("process_step")
+}
+
+/**
+ * READY-MADE ACTION TEMPLATES
+ * These are the actual actions users see and pick in the UI.
+ * One ActionCatalog entry can power many ActionDefinitions
+ * (e.g. "Send email" → "Friendly follow-up", "Thank you after interview", etc.).
+ */
+model ActionDefinition {
+  id   String @id @default(cuid())
+  name String
+
+  isPublic Boolean @default(false)
+  order    Int
+
+  config Json
+
+  // Relationals
+  stepId String?
+  step   ProcessStep? @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@map("action_definition")
+}
+
+// ==============================================================
+// TRIGGERS/EVENTS TEMPLATES
+// ==============================================================
+/**
+ * The machine-readable keys for comparison operators used in TriggerCondition.
+ * These define how the comparisonValue should be compared against the actual fieldKey value.
+ */
+enum ComparisonOperatorEnum {
+  // Exact comparisons (numeric and string)
+  EQ // Equal to
+  NE // Not equal to
+
+  // Numeric/Time comparisons
+  GT // Greater than
+  GTE // Greater than or equal to
+  LT // Less than
+  LTE // Less than or equal to
+
+  // String comparisons
+  CONTAINS // Contains (case-sensitive)
+  STARTS_WITH // Starts with
+  ENDS_WITH // Ends with
+
+  // Array Operators
+  IN // Value is within the list/array
+  NOT_IN // Value is not within the list/array
+
+  // Presence (for booleans and null checks)
+  IS_NULL // Field value is null
+  IS_NOT_NULL // Field value is not null
+}
+
+enum CombinatorEnum {
+  AND
+  OR
+}
+
+enum TriggerCategoryCodeEnum {
+  TIME_BASED
+  STATUS_CHANGE
+  STATUS_EVENT
+  MANUAL
+}
+
+/**
+ * Machine-readable keys for all core trigger events.
+ * Used in code (Go/TypeScript) when publishing events or scheduling jobs.
+ */
+enum TriggerEventCode {
+  /**
+   * TRIGGER AFTER X DAYS
+   * This could be used, if Y hasen´t happened in X days- trigger this
+   */
+  REMINDER // Implemented
+  EMAIL_SENT // Implemented
+  EMAIL_RECEIVED // Implemented
+  NO_REPLY // Implemented
+  INTERVIEW_BOOKED
+  INTERVIEW_COMPLETED
+  INTERVIEW_OFFER
+  APPLICATION_SUBMITTED
+  APPLICATION_REJECTED
+  APPLICATION_RECEIVED
+  OFFER_RECEIVED
+  MANUAL_TRIGGER
+  STEP_COMPLETED
+  STEP_SKIPPED
+}
+
+// --------------------------------------------------------------
+
+// --------------------------------------------------------------
+
+/**
+ * READY-MADE TRIGGER TEMPLATES (Uppdaterad för Nestling)
+ * Definierar en regel och är ägare till de logiska grupperna.
+ */
+model TriggerDefinition {
+  id String @id @default(cuid())
+
+  order     Int
+  isPublic  Boolean @default(false)
+  createdBy String
+
+  triggerCode String
+  executeWhen TriggerEventCode?
+  executeAt   String?
+
+  combinator CombinatorEnum?
+  config     Json
+  conditions Conditional[]
+
+  expiration String?
+
+  stepId String?
+  step   ProcessStep? @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@map("trigger_definition")
+}
+
+/**
+ * NEW MODEL: The individual conditions (if-statements) som nu tillhör en TriggerGroup.
+ * Denna modell är ett LÖV i logikträdet och länkar ENDAST till sin föräldragrupp.
+ */
+model Conditional {
+  id String @id @default(cuid())
+
+  triggerId String
+  trigger   TriggerDefinition @relation(fields: [triggerId], references: [id], onDelete: Cascade)
+
+  fieldKey        String
+  fieldKeyLabel   String
+  operator        ComparisonOperatorEnum
+  comparisonValue String
+  combinator      CombinatorEnum?
+
+  @@map("trigger_condition")
+}
+
+/**
+ * Machine-readable keys for all core actions.
+ * Used in code when executing actions.
+ */
+enum ActionKey {
+  SEND_EMAIL_REMINDER
+  CREATE_CALENDAR_EVENT
+  CALL_REMINDER
+  SEND_SMS
+  WEBHOOK
+  UPDATE_STEP_STATUS
+}
+
+enum TodoItemTypeEnum {
+  TEXT
+  USER_PROCESS
+}
+
+// ==============================================================
+// TODO SYSTEM
+// ==============================================================
+
+model Todo {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  dueDate     DateTime
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  items         TodoItem[]
+  userProcesses TodoUserProcess[]
+
+  @@map("todos")
+}
+
+model TodoItem {
+  id      String           @id @default(cuid())
+  todoId  String
+  todo    Todo             @relation(fields: [todoId], references: [id], onDelete: Cascade)
+  type    TodoItemTypeEnum
+  content String           @db.Text // Text content or userProcessId
+  order   Int
+
+  @@map("todo_items")
+}
+
+model TodoUserProcess {
+  id            String      @id @default(cuid())
+  todoId        String
+  userProcessId String
+  todo          Todo        @relation(fields: [todoId], references: [id], onDelete: Cascade)
+  userProcess   UserProcess @relation(fields: [userProcessId], references: [id], onDelete: Cascade)
+
+  @@unique([todoId, userProcessId])
+  @@map("todo_user_processes")
+}
