@@ -1,53 +1,101 @@
-# Project prospectsync-server
+# ProspectSync Server - Node.js
 
-One Paragraph of project description goes here
+Node.js implementation of ProspectSync Server, migrated from Go.
 
 ## Getting Started
 
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
+### Prerequisites
 
-## MakeFile
+- Node.js v20 or higher
+- PostgreSQL database
+- npm or yarn
 
-Run build make command with tests
+### Installation
+
+1. Install dependencies:
+
 ```bash
-make all
+npm install
 ```
 
-Build the application
+2. Copy `.env` file from project root or create one based on `.env.example`
+
+3. Generate Prisma client:
+
 ```bash
-make build
+npm run prisma:generate
 ```
 
-Run the application
+### Running
+
+Development mode:
+
 ```bash
-make run
-```
-Create DB container
-```bash
-make docker-run
+npm run dev
 ```
 
-Shutdown DB Container
+Production mode:
+
 ```bash
-make docker-down
+npm run build
+npm start
 ```
 
-DB Integrations Test:
+Watch mode (auto-reload):
+
 ```bash
-make itest
+npm run watch
 ```
 
-Live reload the application:
-```bash
-make watch
+## Project Structure
+
+```
+node/
+├── src/
+│   ├── main.ts              # Entry point
+│   ├── config/              # Configuration
+│   ├── server/              # Express server setup
+│   ├── router/              # Route definitions
+│   ├── middleware/          # Express middleware
+│   ├── controllers/         # Request handlers
+│   ├── services/            # Business logic
+│   ├── repositories/        # Database access
+│   ├── models/              # TypeScript types
+│   ├── eventbus/            # Event system
+│   ├── listeners/           # Event listeners
+│   ├── scheduler/          # Cron jobs
+│   ├── utils/               # Utilities
+│   └── ai/                  # AI integration
+└── prisma/                  # Prisma schema
 ```
 
-Run the test suite:
-```bash
-make test
-```
+## API Endpoints
 
-Clean up binary from the last build:
-```bash
-make clean
-```
+- `GET /api/health` - Health check
+- `POST /api/scan/document` - Scan PDF document
+- `POST /api/scan/job-posting` - Scan job posting from URL
+- `POST /api/scan/repo` - Scan repository (placeholder)
+- `POST /api/analyze/repository` - Analyze GitHub repository (placeholder)
+- `POST /api/job-posting/create` - Create job posting (TODO)
+- `GET /api/job-posting/show` - Show job posting (TODO)
+- `PATCH /api/job-posting/update` - Update job posting (TODO)
+- `DELETE /api/job-posting/delete` - Delete job posting (TODO)
+
+## Environment Variables
+
+See `.env.example` for all required environment variables.
+
+## Development
+
+The project uses TypeScript with strict mode enabled. Make sure to:
+
+1. Run `npm run build` to check for TypeScript errors
+2. Use `npm run watch` for development with auto-reload
+3. Follow the router → middleware → controller → service → repository pattern
+
+## Notes
+
+- This is a migration from Go to Node.js
+- All business logic should match the Go version exactly
+- OOP pattern with classes is used throughout
+- Prisma is used for database access instead of raw SQL

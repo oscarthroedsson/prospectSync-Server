@@ -1,8 +1,0 @@
-# .air.toml
-[build]
-cmd = "go build -o ./tmp/main ./cmd/api"
-entrypoint = ["./tmp/main"]
-
-[watch]
-dirs = ["cmd", "internal"]  
-exclude_dirs = ["tmp"]     
