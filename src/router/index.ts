@@ -10,6 +10,6 @@ export function registerRoutes(app: Express): void {
   */
 
   app.use("/api/scan", scanRoutes);
-  app.use("/api/analyze", analyzeRoutes);
+  app.use("/api/analyse", analyzeRoutes);
   app.use("/api/job-posting", jobPostingRoutes);
 }
