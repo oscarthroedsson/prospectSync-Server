@@ -1,15 +1,21 @@
 export interface IRepoFile {
-  owner: string;
+  repoId: string;
   repo: string;
+  repoUrl?: string;
+  repoOwner: string;
+
   path?: string;
   sha: string;
   size?: number;
+  codeLanguage: string | null;
 }
 
 export interface IRepoChunk {
-  repo: string;
-  owner: string;
+  repoId: string;
+  repoUrl?: string;
+  repoName: string;
   path: string;
+
   chunkIndex: number;
   vector: number[];
   content: string;

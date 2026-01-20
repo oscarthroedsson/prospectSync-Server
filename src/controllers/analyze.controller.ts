@@ -43,7 +43,8 @@ export class AnalyzeController {
     });
 
     try {
-      const githubClient = new GithubService(owner.login, name, token.access_token as string);
+      const githubClient = new GithubService(owner.login, name, userId, token.access_token as string);
+
       await githubClient.ingestRepo();
     } catch (err) {
       console.log("🚨 AnalyzeController: ", err);

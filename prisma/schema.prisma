@@ -132,6 +132,10 @@ model User {
   processes                Process[]
   todos                    Todo[]
 
+  analyzedRepos    AnalyzedRepo[]
+  repoOwners       RepoOwner[]
+  repoContributors RepoContributors[]
+
   @@map("users")
 }
 
@@ -683,4 +687,82 @@ model TodoUserProcess {
 
   @@unique([todoId, userProcessId])
   @@map("todo_user_processes")
+}
+
+// ==============================================================
+// ANALYSIS SYSTEM
+// ==============================================================
+/**
+ * Idea is to ba able to see if a repo has been analysed before.
+ * If another user want to analyse the same repo we can just link it to the same collection ID
+ */
+model AnalyzedRepo {
+  id            String    @id @default(uuid())
+  /**
+   * Setting null so we always can check if a repo has been analysed before even if the user is deleted
+   * If the user comes back we can re-assign the repo to them..
+   * This also let us find users that have deleted their account for future jobs like.
+   */
+  repoOwnersId  String?
+  repoOwner     RepoOwner @relation(fields: [repoOwnersId], references: [id])
+  repoName      String
+  repoUrl       String?
+  repoSize      Int?
+  repoIsPrivate Boolean?
+
+  branch       String?
+  codeLanguage String?
+
+  // Can verify via GitHub API
+  lastCommitSha  String?
+  lastCommitDate DateTime?
+
+  uniqueCollectionId String? @unique
+  collectionName     String?
+  chunksCount        Int     @default(0)
+
+  lastIngestDate DateTime? // Latest date an analysis/ingest was done
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  notes String?
+
+  user             User?              @relation(fields: [userId], references: [id])
+  userId           String?
+  repoOwner        RepoOwner?         @relation(fields: [repoOwnerId], references: [id])
+  repoOwnerId      String?
+  repoContributors RepoContributors[]
+
+  @@unique([repoName, repoUrl, branch])
+  @@unique([collectionName])
+  @@map("analyzed_repos")
+}
+
+model RepoOwner {
+  id     String  @id @default(cuid())
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  owner         String // Github-login
+  repoCount     Int            @default(0)
+  analysedRepos AnalyzedRepo[] @relation("OwnerToAnalyzedRepo")
+  analyzedRepos AnalyzedRepo[]
+
+  @@unique([owner])
+  @@map("repo_owners")
+}
+
+// Bad written. 
+model RepoContributors {
+  id             String       @id @default(cuid())
+  analyzedRepoId String
+  analyzedRepo   AnalyzedRepo @relation(fields: [analyzedRepoId], references: [id], onDelete: Cascade)
+  contributorId  String?
+  contributor    User?        @relation(fields: [contributorId], references: [id], onDelete: SetNull)
+
+  contributorLogin String // Github-login
+  contributions    Int    @default(0)
+
+  @@unique([analyzedRepoId, contributorLogin])
+  @@map("repo_contributors")
 }

@@ -45,9 +45,6 @@ export const env = {
   CACHE_TTL_STEP: parseInt(process.env.CACHE_TTL_STEP || "600", 10), // 10 minutes
   CACHE_TTL_TRIGGER: parseInt(process.env.CACHE_TTL_TRIGGER || "900", 10), // 15 minutes
 
-  // Puppeteer Browser Pool
-  PUPPETEER_MAX_BROWSERS: parseInt(process.env.PUPPETEER_MAX_BROWSERS || "10", 10),
-  PUPPETEER_BROWSER_TIMEOUT: parseInt(process.env.PUPPETEER_BROWSER_TIMEOUT || "60000", 10),
-  PUPPETEER_BROWSER_IDLE_TIMEOUT: parseInt(process.env.PUPPETEER_BROWSER_IDLE_TIMEOUT || "300000", 10), // 5 minutes
-  PUPPETEER_QUEUE_MAX_SIZE: parseInt(process.env.PUPPETEER_QUEUE_MAX_SIZE || "100", 10),
+  QDRANT_CLUSTER_URL: process.env.CACHE_TTL_TRIGGER || "",
+  QDRANT_API_KEY: process.env.QDRANT_API_KEY || "",
 };

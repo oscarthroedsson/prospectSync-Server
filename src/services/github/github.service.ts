@@ -1,8 +1,11 @@
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
-import { Octokit } from "@octokit/rest";
+import type { GetResponseDataTypeFromEndpointMethod } from "@octokit/types";
+import { Octokit, RestEndpointMethodTypes } from "@octokit/rest";
 
 import { DEFAULT_CONFIG, IAnalysisConfig } from "../../constants/github-analyse.const";
 import { IRepoChunk, IRepoFile } from "../../interface/github.interface";
+import { RepoChunkPayload } from "../../interface/Qdrant.interface";
+import { QdrantService } from "../Qdrant/Qdrant.service";
 import { openAI } from "../../config";
 
 export type FileHandlingStrategy = "DIRECT" | "STREAM" | "SKIP";
@@ -19,16 +22,26 @@ all should be moved to seperate concerns - but for now it can be handled here
  */
 export class GithubService {
   private octokit: Octokit;
-  private owner: string;
-  private repo: string;
-
+  /**
+   * Username is not necceserly the owner of the repo, we need to verify this..
+   * if it - keep going
+   * if not - get the owner and verify contributions
+   */
+  private username: string;
+  private repoName: string;
+  private repoData: RestEndpointMethodTypes["repos"]["get"]["response"]["data"] | null = null;
+  private userId: string;
+  private QdrantService: QdrantService;
   private splitter: RecursiveCharacterTextSplitter;
 
-  constructor(owner: string, repo: string, token?: string) {
-    this.owner = owner;
-    this.repo = repo;
-    this.octokit = new Octokit({ auth: token });
+  private contributors: string[] = [];
 
+  constructor(owner: string, repoName: string, userId: string, token?: string) {
+    this.username = owner;
+    this.repoName = repoName;
+    this.userId = userId;
+    this.octokit = new Octokit({ auth: token });
+    this.QdrantService = new QdrantService("github-repos");
     /**
      * Details of splitting is more important when we analyse not when breaking down
      * This works just fine
@@ -60,6 +73,9 @@ export class GithubService {
     /**
      * Loop over all the files and decide which strategy for getting all the file content
      */
+    const data = await this.verifyContribution();
+
+    // analyse
     for (const file of files) {
       const strategy = this.decideFileStrategy(file.size as number, config);
       console.info("STRATEGY: ", strategy);
@@ -74,6 +90,8 @@ export class GithubService {
       }
     }
 
+    // upload meta-data
+
     console.log(`Processed ${processed}/${files.length} files`);
   }
 
@@ -81,6 +99,7 @@ export class GithubService {
    * Will fetch the whole file and splitt it up to chunks
    * embedd every chunk and upload it to vector database
    */
+
   async ingestFile(file: IRepoFile) {
     // Get file content
     const url = await this.getRawContentUrl(file);
@@ -89,8 +108,19 @@ export class GithubService {
     const content = await response.text();
 
     // Create chunks - embedd and upload to vector DB
+    const vectorDBId = crypto.randomUUID();
     const chunks = await this.splitter.splitText(content);
+
+    const points: {
+      id: string;
+      vector: number[];
+      payload: RepoChunkPayload;
+    }[] = [];
+
     let chunkIndex = 0;
+    let createdAt = new Date().toISOString();
+    let usageToken: number = 0;
+
     for (const chunk of chunks) {
       const repoChunk = this.buildRepoChunk(file, chunk, chunkIndex++);
       console.info("🥩 Chunk is built");
@@ -99,9 +129,34 @@ export class GithubService {
       console.log("🍀 Return embedded");
       repoChunk.vector = embed.data[0].embedding;
 
+      // Sum up how many tokens the process took
+      usageToken += embed.usage.prompt_tokens ?? 0;
+
+      points.push({
+        id: `${vectorDBId}-${chunkIndex}`,
+        vector: repoChunk.vector,
+        payload: {
+          repoId: file.repoId,
+          repoOwner: (await this.getRepo()).owner.login,
+          collabarators: (await this.getOwnerAndContributors()).contributors,
+          userId: [this.userId],
+          repoName: file.repo,
+          repoPath: file?.path ?? null,
+          fileSize: file?.size ?? null,
+          codeLanguage: file?.codeLanguage ?? null,
+          chunkIndex,
+          createdAt,
+        },
+      });
+
+      await this.QdrantService.upsertChunks("github-repos", points, { wait: true });
       /**
        * Vectorise when everything else is debugged
        * await this.vectorizeAndStore([repoChunk]);
+       */
+
+      /**
+       * Upload to our supabase store so we can controll it
        */
     }
   }
@@ -124,7 +179,10 @@ export class GithubService {
      * - With a bounded queue / worker pool to control concurrency
      *   without breaking rate limits or memory usage.
      */
-    const url = `https://raw.githubusercontent.com/${file.owner}/${file.repo}/HEAD/${file.path}`;
+
+    // ☝🏼 important if the user is not the owner but a contributor
+    const repoData = await this.getRepo();
+    const url = `https://raw.githubusercontent.com/${repoData.owner.login}/${file.repo}/HEAD/${file.path}`;
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed ${file.path}`);
 
@@ -176,6 +234,7 @@ export class GithubService {
 
           if (!embedds) throw new Error(`🚨 [GithubService]: embedds: ${embedds}`);
           repoChunk.vector = embedds.data[0].embedding;
+
           /**
            * await this.vectorizeAndStore([repoChunk]);
            */
@@ -205,17 +264,18 @@ export class GithubService {
 
   // Ge the whole repo tree ex folder n files in DEFAULT_CONFIG
   async traverseRepo(config: IAnalysisConfig = DEFAULT_CONFIG): Promise<IRepoFile[]> {
-    const rootTreeSha = await this.getRootTreeSha();
-
+    // Latest commit will give us the latest folder-structure and all latest files
+    const { sha, html_url } = await this.getLatestCommit();
+    const { id, owner } = await this.getRepo();
     const files: IRepoFile[] = [];
-    const stack: Array<{ sha: string; path: string }> = [{ sha: rootTreeSha, path: "" }];
+    const stack: Array<{ sha: string; path: string }> = [{ sha, path: "" }];
 
     while (stack.length > 0) {
       const current = stack.pop()!;
 
       const { data } = await this.octokit.git.getTree({
-        owner: this.owner,
-        repo: this.repo,
+        owner: this.username,
+        repo: this.repoName,
         tree_sha: current.sha,
         recursive: "false",
       });
@@ -229,24 +289,23 @@ export class GithubService {
         const fullPath = current.path ? `${current.path}/${entry.path}` : (entry.path ?? "");
 
         if (entry.type === "tree") {
-          if (config.excludeDirs.some((dir) => fullPath === dir || fullPath.startsWith(`${dir}/`))) {
-            continue;
-          }
-          if (entry.sha) {
-            stack.push({ sha: entry.sha, path: fullPath });
-          }
+          if (config.excludeDirs.some((dir) => fullPath === dir || fullPath.startsWith(`${dir}/`))) continue;
+          if (entry.sha) stack.push({ sha: entry.sha, path: fullPath });
         }
 
-        // Endast vanliga textfiler – skippa binära
+        // Only regular text files – skip binary files
         if (entry.type === "blob" && entry.size !== undefined && entry.size < config.fileSizePolicy.absoluteMax) {
           // Grov heuristik för textfiler (kan förbättras rejält)
           if (!this.isLikelyBinary(entry.path ?? "")) {
             files.push({
-              owner: this.owner,
-              repo: this.repo,
-              path: fullPath,
-              sha: entry.sha!,
-              size: entry.size,
+              repoId: id.toString(), // Unique ID of the repository, used to link files to metadata
+              repoOwner: owner.login, // username that is used for login to github
+              repo: this.repoName, // Repository name (e.g., "my-project")
+              repoUrl: html_url, // URL to the repository on GitHub
+              path: fullPath, // Full path of the file within the repository (e.g., "src/components/Button.tsx")
+              sha: entry.sha!, // Git SHA of the file at the current commit
+              size: entry.size, // File size in bytes
+              codeLanguage: config.fileLang[fullPath.split(".").pop() as string] || null, // Programming language inferred from file extension
             });
           }
         }
@@ -260,7 +319,7 @@ export class GithubService {
   private async embedChunks(chunk: string) {
     try {
       const embedding = await openAI.embeddings.create({
-        model: "text-embedding-3-small",
+        model: "text-embedding-3- small",
         input: chunk,
       });
 
@@ -310,18 +369,86 @@ export class GithubService {
 
   private async getRawContentUrl(file: IRepoFile): Promise<string> {
     // Använd ref=HEAD för att få senaste, eller byt till branch/commit om du vill
-    return `https://raw.githubusercontent.com/${this.owner}/${this.repo}/HEAD/${file.path}`;
+    const repoData = await this.getRepo();
+    return `https://raw.githubusercontent.com/${repoData.owner.login}/${this.repoName}/HEAD/${file.path}`;
   }
 
   /**
-   *
-   * --------------------- HELPERS ---------------------
-   *
+   * @description Verify usersnames contributions to the repo
+   * @param pPage
+   * @returns
    */
+  async verifyContribution(pPage: number = 100) {
+    const perPage = pPage;
+    let page = 1;
+    let commitCount = 0;
+    let linesAdded = 0;
+    let linesDeleted = 0;
+
+    // Will only let us look at commits the of 2 years back
+    const since = new Date();
+    since.setFullYear(since.getFullYear() - 2);
+
+    const data = await this.getRepo();
+    const repoOwner = data.owner.login; // may not be the same as this.username
+
+    try {
+      while (true) {
+        const { data: commits } = await this.octokit.repos.listCommits({
+          owner: repoOwner,
+          repo: this.repoName,
+          author: this.username,
+          since: since.toISOString(),
+          per_page: perPage,
+          page,
+        });
+
+        if (!commits.length) break;
+
+        commitCount += commits.length;
+
+        for (const commit of commits) {
+          const { data: fullCommit } = await this.octokit.repos.getCommit({
+            owner: repoOwner,
+            repo: this.repoName,
+            ref: commit.sha,
+          });
+
+          linesAdded += fullCommit.stats?.additions ?? 0;
+          linesDeleted += fullCommit.stats?.deletions ?? 0;
+        }
+
+        page++;
+        // Just safing for not getting 403 from github... lets start here and see what this go.
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+
+      const score = linesAdded * 1 + linesDeleted * 0.5 + commitCount * 0.2;
+
+      // Calculate contributions
+      let contributionLevel: "none" | "minor" | "medium" | "major" = "none";
+      if (score > 1000) contributionLevel = "major";
+      else if (score > 300) contributionLevel = "medium";
+      else if (score > 0) contributionLevel = "minor";
+
+      return {
+        contributed: commitCount > 0,
+        commitCount,
+        linesAdded,
+        linesDeleted,
+        score,
+        contributionLevel,
+      };
+    } catch (err) {
+      console.log("🚨 [verifyContribution] Error: ", err);
+    }
+  }
+
   private buildRepoChunk(file: IRepoFile, content: string, index: number): IRepoChunk {
     return {
-      owner: file.owner,
-      repo: file.repo,
+      repoId: file.repoId,
+      repoName: file.repo,
+      repoUrl: file.repoUrl,
       path: file.path as string,
       chunkIndex: index,
       vector: [0],
@@ -334,13 +461,57 @@ export class GithubService {
     };
   }
 
-  private async getRootTreeSha(): Promise<string> {
+  private async getLatestCommit(): Promise<GetResponseDataTypeFromEndpointMethod<typeof this.octokit.repos.getCommit>> {
     const { data } = await this.octokit.repos.getCommit({
-      owner: this.owner,
-      repo: this.repo,
+      owner: this.username,
+      repo: this.repoName,
       ref: "HEAD",
     });
-    return data.commit.tree.sha;
+
+    return data;
+  }
+
+  async getRepo(username: string = this.username, repoName: string = this.repoName) {
+    if (
+      // Return already fetch data if it exist
+      this.repoData &&
+      this.repoData.owner.login === username && // check owner login
+      this.repoData.name === repoName // check repo name
+    ) {
+      return this.repoData;
+    }
+
+    const { data } = await this.octokit.repos.get({
+      owner: username,
+      repo: repoName,
+      ref: "HEAD",
+    });
+    this.repoData = data;
+    return data;
+  }
+
+  async getOwnerAndContributors(): Promise<{ owner: string; contributors: string[] }> {
+    const repoData = await this.getRepo();
+
+    if (repoData.owner.login && this.contributors.length) {
+      return { owner: repoData.owner.login, contributors: this.contributors };
+    }
+
+    const { data: contributors } = await this.octokit.repos.listContributors({
+      owner: repoData.owner.login,
+      repo: repoData.name,
+      per_page: 100,
+    });
+
+    const contributorsList: string[] = (contributors ?? [])
+      .map((c) => c.login)
+      .filter((login): login is string => !!login && login !== repoData.owner.login);
+    this.contributors = contributorsList;
+
+    return {
+      owner: repoData.owner.login,
+      contributors: contributorsList,
+    };
   }
 
   // Placeholder – implementera efter behov

@@ -1,5 +1,6 @@
-import { env } from "./env";
 import OpenAI from "openai";
+
+import { env } from "./env";
 
 console.info("🤖 AI initiated");
 export const openAI = new OpenAI({
