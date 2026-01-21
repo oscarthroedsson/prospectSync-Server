@@ -1,6 +1,6 @@
 import { executeUpdateStepStatus } from "../../../../src/services/action/step-status.action";
 import { ActionDefinition } from "../../../../src/models/action.model";
-import { getPrismaClient } from "../../../../src/config/database";
+import { getPrismaClient } from "../../../../src/config/prisma";
 import { mockPrismaClient } from "../../../helpers/mocks";
 
 jest.mock("../../../../src/config/database", () => ({
@@ -125,9 +125,7 @@ describe("StepStatus Action", () => {
       },
     };
 
-    mockPrismaClient.processStep.update.mockRejectedValue(
-      new Error("Database error")
-    );
+    mockPrismaClient.processStep.update.mockRejectedValue(new Error("Database error"));
 
     await expect(executeUpdateStepStatus(action)).rejects.toThrow("Failed to update step status");
   });

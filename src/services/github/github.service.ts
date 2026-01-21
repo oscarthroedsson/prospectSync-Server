@@ -2,6 +2,8 @@ import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import type { GetResponseDataTypeFromEndpointMethod } from "@octokit/types";
 import { Octokit, RestEndpointMethodTypes } from "@octokit/rest";
 
+import { ParticipantRepoInput } from "../../repositories/repo-participant.repository";
+import { AnalyzedRepoInput } from "../../repositories/analysedRepo.repository";
 import { DEFAULT_CONFIG, IAnalysisConfig } from "../../constants/github-analyse.const";
 import { IRepoChunk, IRepoFile } from "../../interface/github.interface";
 import { RepoChunkPayload } from "../../interface/Qdrant.interface";
@@ -33,15 +35,14 @@ export class GithubService {
   private userId: string;
   private QdrantService: QdrantService;
   private splitter: RecursiveCharacterTextSplitter;
-
   private contributors: string[] = [];
 
-  constructor(owner: string, repoName: string, userId: string, token?: string) {
-    this.username = owner;
+  constructor(username: string, repoName: string, userId: string, token?: string) {
+    this.username = username;
     this.repoName = repoName;
     this.userId = userId;
     this.octokit = new Octokit({ auth: token });
-    this.QdrantService = new QdrantService("github-repos");
+    this.QdrantService = new QdrantService("githup-repos");
     /**
      * Details of splitting is more important when we analyse not when breaking down
      * This works just fine
@@ -55,7 +56,12 @@ export class GithubService {
   }
 
   // Will ingest a repo and ingest every file based on size
-  async ingestRepo(config: IAnalysisConfig = DEFAULT_CONFIG): Promise<void> {
+  async ingestRepo(config: IAnalysisConfig = DEFAULT_CONFIG): Promise<{
+    analyzedRepo: AnalyzedRepoInput;
+    participants: ParticipantRepoInput;
+  }> {
+    const repoData = await this.getRepo();
+
     // Provide data about all the files.
     const files = await this.traverseRepo(config);
 
@@ -73,26 +79,65 @@ export class GithubService {
     /**
      * Loop over all the files and decide which strategy for getting all the file content
      */
-    const data = await this.verifyContribution();
+
+    const { contributed, ...rest } = await this.verifyContribution();
+    if (!contributed) throw new Error(`🛑 ${this.username} did not contribute to ${this.repoName}`);
 
     // analyse
+    let usageTokens = 0;
+    let chunks = 0;
     for (const file of files) {
       const strategy = this.decideFileStrategy(file.size as number, config);
       console.info("STRATEGY: ", strategy);
       if (strategy === "SKIP") continue; //
       switch (strategy) {
         case "DIRECT":
-          await this.ingestFile(file);
+          const res = await this.ingestFile(file);
+
+          usageTokens += res.usageToken;
+          chunks += res.chunks;
+
           break;
         case "STREAM":
           await this.ingestLargeFile(file);
           break;
       }
+      ++processed;
     }
 
     // upload meta-data
+    const analyzedRepo = {
+      repoId: repoData.id.toString(),
+      repoName: this.repoName,
+      repoUrl: repoData.html_url,
+      repoSize: repoData.size,
+      repoIsPrivate: repoData.private,
+
+      branch: repoData.default_branch,
+      codeLanguage: repoData.language,
+
+      collectionName: "githup-repos", // vector DB collection name
+
+      analyseText: "",
+    };
+
+    const participants = {
+      username: this.username,
+      isOwner: repoData.owner.login.toLocaleLowerCase() === this.username,
+
+      contributionLevel: rest.contributionLevel,
+      commitCount: rest.commitCount,
+      linesAdded: rest.linesAdded,
+      linesDeleted: rest.linesDeleted,
+      score: rest.score,
+    };
 
     console.log(`Processed ${processed}/${files.length} files`);
+
+    return {
+      analyzedRepo,
+      participants,
+    };
   }
 
   /**
@@ -108,9 +153,8 @@ export class GithubService {
     const content = await response.text();
 
     // Create chunks - embedd and upload to vector DB
-    const vectorDBId = crypto.randomUUID();
-    const chunks = await this.splitter.splitText(content);
 
+    const chunks = await this.splitter.splitText(content);
     const points: {
       id: string;
       vector: number[];
@@ -118,8 +162,8 @@ export class GithubService {
     }[] = [];
 
     let chunkIndex = 0;
-    let createdAt = new Date().toISOString();
     let usageToken: number = 0;
+    const createdAt = new Date().toISOString();
 
     for (const chunk of chunks) {
       const repoChunk = this.buildRepoChunk(file, chunk, chunkIndex++);
@@ -132,8 +176,9 @@ export class GithubService {
       // Sum up how many tokens the process took
       usageToken += embed.usage.prompt_tokens ?? 0;
 
+      const chunkID = crypto.randomUUID();
       points.push({
-        id: `${vectorDBId}-${chunkIndex}`,
+        id: chunkID,
         vector: repoChunk.vector,
         payload: {
           repoId: file.repoId,
@@ -149,16 +194,17 @@ export class GithubService {
         },
       });
 
-      await this.QdrantService.upsertChunks("github-repos", points, { wait: true });
-      /**
-       * Vectorise when everything else is debugged
-       * await this.vectorizeAndStore([repoChunk]);
-       */
-
-      /**
-       * Upload to our supabase store so we can controll it
-       */
+      try {
+        await this.QdrantService.upsertChunks("githup-repos", points, { wait: true });
+      } catch (err) {
+        console.error("🚨 [ingestFile] | QdrantService: ", err);
+      }
     }
+
+    return {
+      usageToken,
+      chunks: chunks.length,
+    };
   }
   /**
    * Will stream a big file to textsplit, embedd and upload to vector DB
@@ -319,7 +365,7 @@ export class GithubService {
   private async embedChunks(chunk: string) {
     try {
       const embedding = await openAI.embeddings.create({
-        model: "text-embedding-3- small",
+        model: "text-embedding-3-small",
         input: chunk,
       });
 
@@ -441,6 +487,7 @@ export class GithubService {
       };
     } catch (err) {
       console.log("🚨 [verifyContribution] Error: ", err);
+      throw err;
     }
   }
 

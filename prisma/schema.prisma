@@ -20,7 +20,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   //@ts-ignore
-  url      = env("DATABASE_PRODUCTION_URL")
+  url      = env("DIRECT_URL")
 }
 
 // ================ ENUMS ================
@@ -131,10 +131,7 @@ model User {
   processSteps             ProcessStep[]
   processes                Process[]
   todos                    Todo[]
-
-  analyzedRepos    AnalyzedRepo[]
-  repoOwners       RepoOwner[]
-  repoContributors RepoContributors[]
+  repoParticipants         RepoParticipant[]
 
   @@map("users")
 }
@@ -697,14 +694,9 @@ model TodoUserProcess {
  * If another user want to analyse the same repo we can just link it to the same collection ID
  */
 model AnalyzedRepo {
-  id            String    @id @default(uuid())
-  /**
-   * Setting null so we always can check if a repo has been analysed before even if the user is deleted
-   * If the user comes back we can re-assign the repo to them..
-   * This also let us find users that have deleted their account for future jobs like.
-   */
-  repoOwnersId  String?
-  repoOwner     RepoOwner @relation(fields: [repoOwnersId], references: [id])
+  id String @id @default(uuid())
+
+  repoId        String   @unique // ID from github / gitbucket / 
   repoName      String
   repoUrl       String?
   repoSize      Int?
@@ -713,56 +705,37 @@ model AnalyzedRepo {
   branch       String?
   codeLanguage String?
 
-  // Can verify via GitHub API
-  lastCommitSha  String?
-  lastCommitDate DateTime?
+  collectionName String? @unique
 
-  uniqueCollectionId String? @unique
-  collectionName     String?
-  chunksCount        Int     @default(0)
+  createdAt DateTime @default(now()) // will always be the same as ingest date
+  updatedAt DateTime @updatedAt // Will auto update when we update the table
 
-  lastIngestDate DateTime? // Latest date an analysis/ingest was done
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  analyseText      String?
+  repoParticipants RepoParticipant[]
 
-  notes String?
-
-  user             User?              @relation(fields: [userId], references: [id])
-  userId           String?
-  repoOwner        RepoOwner?         @relation(fields: [repoOwnerId], references: [id])
-  repoOwnerId      String?
-  repoContributors RepoContributors[]
-
-  @@unique([repoName, repoUrl, branch])
-  @@unique([collectionName])
+  @@unique([repoId, repoName, repoUrl])
   @@map("analyzed_repos")
 }
 
-model RepoOwner {
-  id     String  @id @default(cuid())
+model RepoParticipant {
+  id String @id @default(cuid())
+
   userId String?
   user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  owner         String // Github-login
-  repoCount     Int            @default(0)
-  analysedRepos AnalyzedRepo[] @relation("OwnerToAnalyzedRepo")
-  analyzedRepos AnalyzedRepo[]
+  username String
+  isOwner  Boolean @default(false)
 
-  @@unique([owner])
-  @@map("repo_owners")
-}
+  // meta data
+  contributionLevel String?
+  commitCount       Int?
+  linesAdded        Int?
+  linesDeleted      Int?
+  score             Float?
 
-// Bad written. 
-model RepoContributors {
-  id             String       @id @default(cuid())
-  analyzedRepoId String
-  analyzedRepo   AnalyzedRepo @relation(fields: [analyzedRepoId], references: [id], onDelete: Cascade)
-  contributorId  String?
-  contributor    User?        @relation(fields: [contributorId], references: [id], onDelete: SetNull)
+  analyzedRepoId String?
+  analyzedRepo   AnalyzedRepo? @relation(fields: [analyzedRepoId], references: [id], onDelete: SetNull)
 
-  contributorLogin String // Github-login
-  contributions    Int    @default(0)
-
-  @@unique([analyzedRepoId, contributorLogin])
-  @@map("repo_contributors")
+  @@unique([analyzedRepoId, userId])
+  @@map("repo_participants")
 }

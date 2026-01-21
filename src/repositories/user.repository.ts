@@ -1,21 +1,60 @@
-import { PrismaClient, Prisma } from "@prisma/client";
-import { getPrismaClient } from "../config/database";
+import { Prisma, PrismaClient } from "@prisma/client";
+
 import { IUser, IUserWithRelations } from "../models/user.model";
+import { getPrismaClient } from "../config/prisma";
 
 // Define the include config once
-const userInclude = {
+const DEFAULT_USER_INCLUDES = {
   providers: {
     include: {
       token: true,
     },
   },
-  applications: true,
+  applications: {
+    include: {
+      jobPosting: true,
+    },
+  },
+  userProcess: {
+    include: {
+      jobPosting: true,
+
+      process: {
+        include: {
+          steps: true,
+        },
+      },
+
+      steps: {
+        include: {
+          step: true,
+          comments: true,
+        },
+      },
+
+      todos: {
+        include: {
+          todo: {
+            include: {
+              items: true,
+            },
+          },
+        },
+      },
+    },
+  },
+
   company: true,
+  createdJobPostings: true,
+  userPipelineStepComments: true,
+  processSteps: true,
+  processes: true,
+  todos: true,
 } satisfies Prisma.UserInclude;
 
 // Typ för User med relationer
 type UserWithRelations = Prisma.UserGetPayload<{
-  include: typeof userInclude;
+  include: typeof DEFAULT_USER_INCLUDES;
 }>;
 
 export class UserRepository {
@@ -42,7 +81,7 @@ export class UserRepository {
   async show(id: string): Promise<IUserWithRelations | null> {
     const user = await this.prisma.user.findUnique({
       where: { id: id },
-      include: userInclude,
+      include: DEFAULT_USER_INCLUDES,
     });
     console.log("user: ", user);
     if (!user) return user;
@@ -53,7 +92,7 @@ export class UserRepository {
   async showByEmail(email: string): Promise<IUserWithRelations | null> {
     const user = await this.prisma.user.findUnique({
       where: { email },
-      include: userInclude,
+      include: DEFAULT_USER_INCLUDES,
     });
 
     return user ? this.mapToUserWithRelations(user) : null;

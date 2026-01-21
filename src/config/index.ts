@@ -1,4 +1,4 @@
 export * from "./env";
-export * from "./database";
+export * from "./prisma";
 export * from "./supabase";
 export * from "./openAI";

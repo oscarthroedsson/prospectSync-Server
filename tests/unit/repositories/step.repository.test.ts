@@ -1,5 +1,5 @@
 import { StepRepository } from "../../../src/repositories/step.repository";
-import { getPrismaClient } from "../../../src/config/database";
+import { getPrismaClient } from "../../../src/config/prisma";
 import { mockPrismaClient } from "../../helpers/mocks";
 
 jest.mock("../../../src/config/database", () => ({

@@ -1,7 +1,8 @@
 import request from "supertest";
-import { createTestApp } from "../../helpers/test-server";
+
 import { getJobPostingRepository } from "../../../src/repositories/job-posting.repository";
-import { getPrismaClient } from "../../../src/config/database";
+import { getPrismaClient } from "../../../src/config/prisma";
+import { createTestApp } from "../../helpers/test-server";
 import { sampleJobPosting } from "../../helpers/fixtures";
 import { mockPrismaClient } from "../../helpers/mocks";
 
@@ -22,9 +23,7 @@ describe("Job Posting Routes", () => {
         showJobPosting: jest.fn().mockResolvedValue(sampleJobPosting),
       });
 
-      const response = await request(app)
-        .get("/api/job-posting/show")
-        .query({ url: "https://example.com/job" });
+      const response = await request(app).get("/api/job-posting/show").query({ url: "https://example.com/job" });
 
       expect(response.status).toBe(200);
       expect(response.body.jobPostingUrl).toBe(sampleJobPosting.jobPostingUrl);
@@ -35,9 +34,7 @@ describe("Job Posting Routes", () => {
         showJobPosting: jest.fn().mockResolvedValue(null),
       });
 
-      const response = await request(app)
-        .get("/api/job-posting/show")
-        .query({ url: "https://example.com/not-found" });
+      const response = await request(app).get("/api/job-posting/show").query({ url: "https://example.com/not-found" });
 
       expect(response.status).toBe(404);
     });
@@ -51,9 +48,7 @@ describe("Job Posting Routes", () => {
       (getPrismaClient as jest.Mock).mockReturnValue(mockPrismaClient);
       mockPrismaClient.jobPosting.delete.mockResolvedValue({});
 
-      const response = await request(app)
-        .delete("/api/job-posting/delete")
-        .query({ url: "https://example.com/job" });
+      const response = await request(app).delete("/api/job-posting/delete").query({ url: "https://example.com/job" });
 
       expect(response.status).toBe(200);
       expect(response.body.message).toContain("deleted");

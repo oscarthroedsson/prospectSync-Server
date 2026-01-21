@@ -1,6 +1,6 @@
 import { ActionExecutor } from "../../../src/services/action/action-executor.service";
-import { ActionDefinition, ActionConfigType } from "../../../src/models/action.model";
-import { getPrismaClient } from "../../../src/config/database";
+import { ActionConfigType, ActionDefinition } from "../../../src/models/action.model";
+import { getPrismaClient } from "../../../src/config/prisma";
 import { mockPrismaClient } from "../../helpers/mocks";
 
 jest.mock("../../../src/config/database");

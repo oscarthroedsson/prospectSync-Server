@@ -1,14 +1,14 @@
-import { createApp } from "./server/app";
-import { HttpServer } from "./server/server";
-import { getEventBus } from "./eventbus/event-bus";
-import { startAllListeners } from "./listeners";
-import { Scheduler } from "./scheduler/scheduler";
 import { DailyJobPostingCheck } from "./scheduler/jobs/daily-job-posting-check.job";
 import { DailyReminderCheck } from "./scheduler/jobs/daily-reminder-check.job";
-import { registerRoutes } from "./router";
 import { errorMiddleware } from "./middleware/error.middleware";
-import { disconnectDatabase } from "./config/database";
 import { getBrowserPool } from "./utils/web/browser-pool";
+import { Scheduler } from "./scheduler/scheduler";
+import { getEventBus } from "./eventbus/event-bus";
+import { disconnectDatabase } from "./config/prisma";
+import { HttpServer } from "./server/server";
+import { createApp } from "./server/app";
+import { startAllListeners } from "./listeners";
+import { registerRoutes } from "./router";
 
 async function main() {
   console.log("🚀 [Main] Starting application...");
@@ -79,6 +79,8 @@ async function main() {
   // Start HTTP server
   await httpServer.start();
   console.log("✅ [Main] Application started successfully");
+
+  // emptyQdrantCollection();
 }
 
 // Run main function

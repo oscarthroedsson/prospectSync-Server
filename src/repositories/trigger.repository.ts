@@ -1,6 +1,7 @@
-import { PrismaClient, Prisma } from "@prisma/client";
-import { getPrismaClient } from "../config/database";
+import { Prisma, PrismaClient } from "@prisma/client";
+
 import { TriggerDefinition } from "../models/trigger.model";
+import { getPrismaClient } from "../config/prisma";
 
 export class TriggerRepository {
   private prisma: PrismaClient;
@@ -46,7 +47,7 @@ export class TriggerRepository {
           AND "executeAt" IS NOT NULL
           AND DATE("executeAt"::timestamp) = DATE(${dateStr}::timestamp)
         ORDER BY "executeAt" ASC
-      `
+      `,
     );
 
     return triggers.map((trigger) => ({

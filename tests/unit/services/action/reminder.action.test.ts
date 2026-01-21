@@ -1,8 +1,9 @@
+import { addDays, format } from "date-fns";
+
 import { executeCallReminder } from "../../../../src/services/action/reminder.action";
 import { ActionDefinition } from "../../../../src/models/action.model";
-import { getPrismaClient } from "../../../../src/config/database";
+import { getPrismaClient } from "../../../../src/config/prisma";
 import { mockPrismaClient } from "../../../helpers/mocks";
-import { format, addDays } from "date-fns";
 
 jest.mock("../../../../src/config/database", () => ({
   getPrismaClient: jest.fn(),
@@ -122,9 +123,7 @@ describe("Reminder Action", () => {
       },
     };
 
-    mockPrismaClient.triggerDefinition.create.mockRejectedValue(
-      new Error("Database error")
-    );
+    mockPrismaClient.triggerDefinition.create.mockRejectedValue(new Error("Database error"));
 
     await expect(executeCallReminder(action)).rejects.toThrow("Failed to create call reminder");
   });

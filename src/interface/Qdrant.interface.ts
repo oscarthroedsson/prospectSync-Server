@@ -1,4 +1,4 @@
-export type QdrantCollectionName = "github-repos";
+export type QdrantCollectionName = "githup-repos";
 
 export type RepoChunkPayload = {
   userId: string[] | null; // Needs to be array so github collabds of ownerships can be linked in vector-DB

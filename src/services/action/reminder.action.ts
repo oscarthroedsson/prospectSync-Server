@@ -1,7 +1,8 @@
-import { ActionDefinition } from "../../models/action.model";
-import { addDays, format } from "date-fns";
-import { getPrismaClient } from "../../config/database";
 import { TriggerEventCode } from "@prisma/client";
+import { addDays, format } from "date-fns";
+
+import { ActionDefinition } from "../../models/action.model";
+import { getPrismaClient } from "../../config/prisma";
 
 export async function executeCallReminder(action: ActionDefinition): Promise<void> {
   const config = action.config;
@@ -48,7 +49,7 @@ export async function executeCallReminder(action: ActionDefinition): Promise<voi
     });
 
     console.log(
-      `✅ [ActionExecutor] CALL_REMINDER - Successfully created reminder for ${executeAt} (${daysFromNow} days from now)`
+      `✅ [ActionExecutor] CALL_REMINDER - Successfully created reminder for ${executeAt} (${daysFromNow} days from now)`,
     );
   } catch (error: any) {
     console.error(`❌ [ActionExecutor] CALL_REMINDER - Error creating reminder:`, error);

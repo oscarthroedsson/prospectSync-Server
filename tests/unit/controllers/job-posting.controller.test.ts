@@ -1,7 +1,8 @@
-import { JobPostingController } from "../../../src/controllers/job-posting.controller";
 import { Request, Response } from "express";
+
 import { getJobPostingRepository } from "../../../src/repositories/job-posting.repository";
-import { getPrismaClient } from "../../../src/config/database";
+import { JobPostingController } from "../../../src/controllers/job-posting.controller";
+import { getPrismaClient } from "../../../src/config/prisma";
 import { sampleJobPosting } from "../../helpers/fixtures";
 import { mockPrismaClient } from "../../helpers/mocks";
 

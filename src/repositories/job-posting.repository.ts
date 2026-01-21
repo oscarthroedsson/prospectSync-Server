@@ -1,7 +1,8 @@
-import { PrismaClient, Prisma, CreatedByEnum, JobSourceEnum } from "@prisma/client";
-import { getPrismaClient } from "../config/database";
-import { IJobPosting } from "../models/job-posting.model";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
+import { CreatedByEnum, JobSourceEnum, Prisma, PrismaClient } from "@prisma/client";
+
+import { IJobPosting } from "../models/job-posting.model";
+import { getPrismaClient } from "../config/prisma";
 
 // Define the include config once
 const jobPostingInclude = {

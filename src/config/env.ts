@@ -45,6 +45,6 @@ export const env = {
   CACHE_TTL_STEP: parseInt(process.env.CACHE_TTL_STEP || "600", 10), // 10 minutes
   CACHE_TTL_TRIGGER: parseInt(process.env.CACHE_TTL_TRIGGER || "900", 10), // 15 minutes
 
-  QDRANT_CLUSTER_URL: process.env.CACHE_TTL_TRIGGER || "",
+  QDRANT_CLUSTER_URL: process.env.QDRANT_CLUSTER_URL || "",
   QDRANT_API_KEY: process.env.QDRANT_API_KEY || "",
 };

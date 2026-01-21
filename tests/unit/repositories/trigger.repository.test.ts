@@ -1,5 +1,5 @@
 import { TriggerRepository } from "../../../src/repositories/trigger.repository";
-import { getPrismaClient } from "../../../src/config/database";
+import { getPrismaClient } from "../../../src/config/prisma";
 import { mockPrismaClient } from "../../helpers/mocks";
 
 jest.mock("../../../src/config/database", () => ({
