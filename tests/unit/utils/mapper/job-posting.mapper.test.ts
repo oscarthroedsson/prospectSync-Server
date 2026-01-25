@@ -1,4 +1,4 @@
-import { jobPostingMapper } from "../../../../src/utils/mapper/job-posting.mapper";
+import { JobPostingMapper } from "../../../../src/utils/mapper/job-posting.mapper";
 
 describe("Job Posting Mapper", () => {
   it("should map data to JobPosting with required fields", () => {
@@ -7,21 +7,23 @@ describe("Job Posting Mapper", () => {
       companyName: "Test Company",
       markdownText: "# Job Description",
       status: "active",
-      language: [],
-      jobRequirements: [],
-      merits: [],
-      applicantQualities: [],
+      preferenceSet: {
+        languages: [],
+        requirements: [],
+        merits: [],
+        applicantQualities: [],
+      },
     };
 
     const url = "https://example.com/job/123";
     const createdById = "user-123";
 
-    const result = jobPostingMapper(data, url, createdById);
+    const result = JobPostingMapper.create(data, url, createdById);
 
     expect(result.jobPostingUrl).toBe(url);
-    expect(result.createdJobPosting.createdByType).toBe("system");
-    expect(result.createdJobPosting.createdById).toBe(createdById);
-    expect(result.createdJobPosting.source).toBe("url");
+    expect(result.createdJobPosting?.createdByType).toBe("system");
+    expect(result.createdJobPosting?.createdById).toBe(createdById);
+    expect(result.createdJobPosting?.source).toBe("url");
     expect(result.createdAt).toBeDefined();
     expect(result.updatedAt).toBeDefined();
   });
@@ -32,15 +34,17 @@ describe("Job Posting Mapper", () => {
       companyName: "Company",
       markdownText: "Description",
       status: "active",
-      language: [],
-      jobRequirements: [],
-      merits: [],
-      applicantQualities: [],
+      preferenceSet: {
+        languages: [],
+        requirements: [],
+        merits: [],
+        applicantQualities: [],
+      },
     };
 
-    const result = jobPostingMapper(data, "https://example.com/job", undefined);
+    const result = JobPostingMapper.create(data, "https://example.com/job", undefined);
 
-    expect(result.createdJobPosting.createdById).toBeUndefined();
+    expect(result.createdJobPosting?.createdById).toBeUndefined();
   });
 
   it("should preserve all data fields", () => {
@@ -52,28 +56,32 @@ describe("Job Posting Mapper", () => {
       markdownText: "# Job Description",
       status: "active",
       endsAt: "2024-12-31T23:59:59Z",
-      language: [{ language: "English", level: "Fluent" }],
-      jobRequirements: ["5+ years"],
-      merits: ["Remote"],
-      applicantQualities: ["Team player"],
-      location: { city: "Stockholm", country: "Sweden" },
-      workArrengment: "remote",
-      employmentType: "full-time",
-      salary: {
-        type: "monthly",
-        amount: "50000",
-        currency: "SEK",
-        period: "month",
+      preferenceSet: {
+        languages: [{ language: "English", level: "Fluent" }],
+        requirements: [{ requirement: "5+ years" }],
+        merits: [{ merit: "Remote" }],
+        applicantQualities: [{ quality: "Team player" }],
+        locations: [{ city: "Stockholm", country: "Sweden" }],
+        workArrangements: [{ mode: "remote" }],
+        employmentTypes: [{ type: "full_time" }],
+        salaries: [
+          {
+            minAmount: 50000,
+            maxAmount: 60000,
+            currency: "SEK",
+            period: "monthly",
+          },
+        ],
       },
     };
 
-    const result = jobPostingMapper(data, "https://example.com/job", "user-123");
+    const result = JobPostingMapper.create(data, "https://example.com/job", "user-123");
 
     expect(result.title).toBe(data.title);
     expect(result.companyName).toBe(data.companyName);
     expect(result.companyLogo).toBe(data.companyLogo);
     expect(result.jobDescription).toBe(data.jobDescription);
-    expect(result.language).toEqual(data.language);
-    expect(result.jobRequirements).toEqual(data.jobRequirements);
+    expect(result.preferenceSet?.languages).toEqual(data.preferenceSet.languages);
+    expect(result.preferenceSet?.requirements).toEqual(data.preferenceSet.requirements);
   });
 });

@@ -24,6 +24,20 @@ datasource db {
 }
 
 // ================ ENUMS ================
+enum UserRole {
+  APPLICANT // Jobbsökande / profil som ska synas för rekryterare
+  RECRUITER // Rekryterare / HR-person
+  EMPLOYER // Företagsadministratör
+  ADMIN // Systemadministratör
+}
+
+enum SkillLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
 enum WorkArrangementEnum {
   remote_full_time
   remote_part_time
@@ -42,6 +56,7 @@ enum EmploymentEnum {
   temporary
   internship
   freelance
+  trainee
 }
 
 enum SalaryTypeEnum {
@@ -98,42 +113,165 @@ enum StatusUserJobProcesses {
 
 // ========================================================================
 
-/**
- * TODO:
- * We need to expand this table to multiple tables.
- * We should be able to create a whole profile on the user
- * → Qualities
- * → Knowledge areas
- * → Work experiances
- * → Educations
- * → Phone number
- * → Where they live
- * → Maybe more
- * ☝🏼 This is or later when before we write logic of creating a RESUME or Cover letter
- */
+// NEW USER 
 model User {
-  id            String  @id @default(cuid())
+  id            String   @id @default(cuid())
   name          String?
-  email         String? @unique
+  email         String?  @unique
   emailVerified String?
   image         String?
+  role          UserRole @default(APPLICANT)
+  isSearching   Boolean  @default(true) // Is the user actively searching for a job
 
-  // Role      UserRole  @default(APPLICANT) → Bör detta läggas till?! 
-  providers    Provider[]
-  applications JobApplicants[] // Will show every job process the user has initiated (not necessarily started)
-  userProcess  UserProcess[] // Will show every process they have started not necesserliy in
+  /**
+   * 🩵 Relation
+   * All relations should be optional to begin with becuase we wont force how the user need to set-up the profile
+   * if the user wants a insufficient profile- that is on them
+   */
+  contactInfos    ContactInfo[] // The contact infos of the user
+  socialLinks     SocialLink[] // The social links of the user
+  qualities       Quality[] // The qualities of the user
+  knowledgeAreas  KnowledgeArea[] // The knowledge areas of the user
+  workExperiences WorkExperience[] // The work experiences the user has
+  educations      Education[] // The education the user has
+  cvs             CV[] // Multiple CVs- but one will be default and more general
+  coverLetters    CoverLetter[] // Multiple cover letters but one will be default and more general
 
-  company   Company? @relation("CompanyUsers", fields: [companyId], references: [id])
-  companyId String?
+  preferenceSets PreferenceSet[] // User preference for a job- this is shared with job postings and make it easier to filter
 
+  applications JobApplicants[] // Job the user has applied to
+  userProcess  UserProcess[] // Process the user has started 
+
+  company                  Company?                  @relation("CompanyUsers", fields: [companyId], references: [id])
+  companyId                String?
   createdJobPostings       CreatedJobPosting[]       @relation("UserCreatedJobPostings")
   userPipelineStepComments UserPipelineStepComment[]
   processSteps             ProcessStep[]
   processes                Process[]
   todos                    Todo[]
   repoParticipants         RepoParticipant[]
+  providers                Provider[]
 
   @@map("users")
+}
+
+model ContactInfo {
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  type       String // e.g., "phone", "address"
+  value      String // e.g., "+46 70 123 45 67", "Stockholm, Sweden"
+  country    String?
+  region     String?
+  city       String?
+  postalCode String?
+
+  @@map("contact_infos")
+}
+
+model SocialLink {
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  platform String // e.g., LinkedIn, GitHub
+  url      String
+
+  @@map("social_links")
+}
+
+model Quality {
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  name  String
+  level String? // e.g., Beginner, Intermediate, Advanced
+
+  @@map("qualities")
+}
+
+model KnowledgeArea {
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  name        String // e.g., TypeScript, Project Management
+  level       String? // Optional: Beginner, Intermediate, Advanced
+  years       Float? // Optional: Years of experience
+  certificate String? // Optional certificate name
+
+  @@map("knowledge_areas")
+}
+
+model WorkExperience {
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  companyName String
+  role        String
+  startDate   DateTime
+  endDate     DateTime?
+  description String?
+
+  @@map("work_experiences")
+}
+
+model Education {
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  institution  String
+  degree       String?
+  fieldOfStudy String?
+  startDate    DateTime
+  endDate      DateTime?
+  description  String?
+
+  // Relation till flera filer
+  files EducationFile[]
+
+  @@map("educations")
+}
+
+model EducationFile {
+  id          String    @id @default(cuid())
+  education   Education @relation(fields: [educationId], references: [id])
+  educationId String
+
+  fileUrl   String // t.ex. länk till S3
+  fileType  String? // t.ex. "Diploma", "Transcript"
+  createdAt DateTime @default(now())
+
+  @@map("education_files")
+}
+
+model CV {
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  fileUrl   String
+  createdAt DateTime @default(now())
+  isDefault Boolean  @default(false) // Mark default CV
+
+  @@map("cvs")
+}
+
+model CoverLetter {
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  fileUrl   String?
+  text      String?
+  createdAt DateTime @default(now())
+  isDefault Boolean  @default(false) // Mark default cover letter
+
+  @@map("cover_letters")
 }
 
 /// Login method (Google, GitHub, etc.) – stores external ID + tokens
@@ -196,70 +334,103 @@ model JobPosting {
   createdAt      String  @default(dbgenerated("now()"))
   updatedAt      String  @default(dbgenerated("now()"))
 
-  language           JobPostingLanguage[]
-  jobRequirements    JobPostingRequirement[]
-  merits             JobPostingMerit[]
-  applicantQualities JobPostingApplicantQuality[]
-  location           JobPostingLocation?
-  workArrengment     JobPostingWorkArrengment?
-  employmentType     JobPostingEmploymentType?
-  salary             JobPostingSalary?
-  createdJobPosting  CreatedJobPosting?
+  createdJobPosting CreatedJobPosting?
 
   company   Company? @relation(fields: [companyId], references: [id])
   companyId String?
 
-  userJobApplications JobApplicants[] // Tracks who have searched this job
-  userProcesses       UserProcess[]
+  preferenceSet PreferenceSet[] // pref / demands for the job application
+
+  jobApplicants JobApplicants[]
+  userProcesses UserProcess[]
 
   @@index([status, endsAt, companyId, title])
   @@map("job_postings")
 }
 
-model JobPostingLanguage {
-  id           String  @id @default(cuid())
-  jobPostingId String
-  language     String
-  level        String?
+model PreferenceSet {
+  id String @id @default(cuid())
 
-  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  // Koppling till kandidat (om det är kandidatens egna preferenser)
+  user   User?   @relation(fields: [userId], references: [id])
+  userId String?
 
-  @@map("job_posting_languages")
+  // Koppling till jobbannons (om det är rekryterarens preferens/krav)
+  jobPosting   JobPosting? @relation(fields: [jobPostingId], references: [id])
+  jobPostingId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // ✅ Alla detaljtabeller kopplas hit
+  languages          Language[]
+  locations          Location[]
+  workArrangements   WorkArrangement[]
+  employmentTypes    EmploymentType[]
+  salaries           Salary[]
+  benefits           Benefit[]
+  requirements       Requirement[]
+  merits             Merit[]
+  applicantQualities ApplicantQuality[]
+
+  @@map("preference_sets")
 }
 
-model JobPostingRequirement {
-  id           String @id @default(cuid())
-  jobPostingId String
-  requirement  String
+/**
+ * All down below should be connected with prefrence above
+ */
+model Language {
+  id String @id @default(cuid())
 
-  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  // Koppling till kandidat eller jobb
+  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id])
+  preferenceSetId String?
+
+  language String
+  level    String? // ex. Beginner, Intermediate, Advanced, Expert
+  isNative Boolean? @default(false)
+
+  @@index([language])
+  @@index([level])
+  @@index([isNative])
+  @@map("language_skills")
+}
+
+model Requirement {
+  id          String @id @default(cuid())
+  requirement String
+
+  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id])
+  preferenceSetId String?
 
   @@map("job_posting_requirements")
 }
 
-model JobPostingMerit {
-  id           String @id @default(cuid())
-  jobPostingId String
-  merit        String
+model Merit {
+  id    String @id @default(cuid())
+  merit String
 
-  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id])
+  preferenceSetId String?
 
   @@map("job_posting_merits")
 }
 
-model JobPostingApplicantQuality {
-  id           String @id @default(cuid())
-  jobPostingId String
-  quality      String
+model ApplicantQuality {
+  id      String @id @default(cuid())
+  quality String
 
-  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id])
+  preferenceSetId String?
 
   @@map("job_posting_applicant_qualities")
 }
 
-model JobPostingLocation {
-  id           String @id @default(cuid())
-  jobPostingId String @unique
+model Location {
+  id String @id @default(cuid())
+
+  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id])
+  preferenceSetId String?
 
   city     String?
   region   String?
@@ -268,51 +439,73 @@ model JobPostingLocation {
   lat      Float?
   lng      Float?
 
-  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
-
   @@index([city])
   @@index([region])
   @@index([country])
   @@index([isRemote])
-  @@map("job_posting_locations")
+  @@map("locations")
 }
 
-model JobPostingWorkArrengment {
-  id           String @id @default(cuid())
-  jobPostingId String @unique
-  mode         String
+model WorkArrangement {
+  id String @id @default(cuid())
 
-  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id])
+  preferenceSetId String?
 
-  @@map("job_posting_work_modes")
+  mode WorkArrangementEnum
+
+  @@index([mode])
+  @@map("work_arrangements")
 }
 
-model JobPostingEmploymentType {
-  id           String @id @default(cuid())
-  jobPostingId String @unique
-  type         String
+model EmploymentType {
+  id String @id @default(cuid())
 
-  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id])
+  preferenceSetId String?
 
-  @@map("job_posting_employment_types")
-}
-
-model JobPostingSalary {
-  id           String @id @default(cuid())
-  jobPostingId String @unique
-
-  type     String
-  amount   String?
-  currency String   @default("SEK")
-  period   String   @default("monthly")
-  benefits String[]
-  notes    String?
-
-  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  type EmploymentEnum
 
   @@index([type])
+  @@map("employment_types")
+}
+
+model Salary {
+  id String @id @default(cuid())
+
+  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id])
+  preferenceSetId String?
+
+  minAmount Float?
+  maxAmount Float?
+  currency  String  @default("SEK")
+  period    String  @default("monthly")
+  notes     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Indexering för snabb filtrering
+  @@index([minAmount, maxAmount])
+  @@index([currency])
   @@index([period])
-  @@map("job_posting_salaries")
+  @@map("salaries")
+}
+
+model Benefit {
+  id String @id @default(cuid())
+
+  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id])
+  preferenceSetId String?
+
+  name        String
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@map("benefits")
 }
 
 /**
@@ -339,10 +532,7 @@ model CreatedJobPosting {
 // ==============================================================
 
 /**
- * Applications for a specific job posting.
- * Help us with
- * → Get all users for a specific job posting
- * → Do analytics of a specific job posting
+ * ƒ This should hold more meta data for the future to be more helpful for recruiters
  */
 model JobApplicants {
   id           String @id @default(cuid())

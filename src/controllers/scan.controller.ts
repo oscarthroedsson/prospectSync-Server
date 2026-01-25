@@ -1,11 +1,11 @@
 import { Request, Response } from "express";
-import { extractTextFromPDF } from "../utils/pdf/pdf-parser";
+
+import { ScanJobPostingService } from "../services/job-posting/scan-job-posting-service";
 import { getJobPostingService } from "../services/job-posting/job-posting.service";
 import { WebhookService } from "../services/webhook/webhook.service";
-import { WebhookEvent, WebhookType } from "../models/webhook.model";
-import { ScanJobPostingService } from "../services/job-posting/scan-job-posting-service";
-
-import { jobPostingMapper } from "../utils/mapper/job-posting.mapper";
+import { JobPostingMapper } from "../utils/mapper/job-posting.mapper";
+import { extractTextFromPDF } from "../utils/pdf/pdf-parser";
+import { WebhookEvent, WebhookType } from "../Types/webhook.types";
 
 export class ScanController {
   /**
@@ -74,7 +74,7 @@ export class ScanController {
 
     try {
       const jobPostingService = getJobPostingService();
-      const existingJob = await jobPostingService.getByUrl(url);
+      const existingJob = await jobPostingService.showByUrl(url);
 
       if (existingJob) {
         console.log("🔵 Job posting already exists in DB, skipping scan and returning existing");
@@ -109,8 +109,8 @@ export class ScanController {
           console.time("JobScanTimer");
 
           const scannedJobPosting = await scanner.start();
-          const jobPosting = jobPostingMapper(scannedJobPosting, url, userID);
-
+          const jobPosting = JobPostingMapper.create(scannedJobPosting, url, userID);
+          console.log("🎯 Parsed result:", JSON.stringify(jobPosting, null, 2));
           console.timeEnd("JobScanTimer"); // loggar tid sedan start
           console.log("✅ Job scan completed!");
 

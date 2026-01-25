@@ -1,5 +1,5 @@
 import { ActionExecutor } from "../../../src/services/action/action-executor.service";
-import { ActionConfigType, ActionDefinition } from "../../../src/models/action.model";
+import { ActionConfigType, ActionDefinition } from "../../../src/Types/action.types";
 import { getPrismaClient } from "../../../src/config/prisma";
 import { mockPrismaClient } from "../../helpers/mocks";
 

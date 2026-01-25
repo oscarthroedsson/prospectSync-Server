@@ -1,5 +1,5 @@
 import { executeUpdateStepStatus } from "../../../../src/services/action/step-status.action";
-import { ActionDefinition } from "../../../../src/models/action.model";
+import { ActionDefinition } from "../../../../src/Types/action.types";
 import { getPrismaClient } from "../../../../src/config/prisma";
 import { mockPrismaClient } from "../../../helpers/mocks";
 

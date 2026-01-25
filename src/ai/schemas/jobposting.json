@@ -1,5 +1,6 @@
 {
   "type": "object",
+  "additionalProperties": false,
   "properties": {
     "title": {
       "type": "string",
@@ -15,36 +16,37 @@
     },
     "createdJobPosting": {
       "type": "object",
+      "additionalProperties": false,
       "description": "Information of who created the jobposting",
       "properties": {
         "createdByType": {
           "type": "string",
-          "enum": ["system"]
+          "enum": ["system", "user", "admin"]
         },
         "createdById": {
-          "type": ["null"],
-          "enum": ["null"]
+          "type": ["string", "null"],
+          "description": "User ID if created by user/recruiter, null if system"
         },
         "source": {
           "type": ["string", "null"],
-          "enum": ["linkedin", "file_import", "api", "url"],
-          "description": "Where the post is comming from"
+          "enum": ["linkedin", "file_import", "api", "url", null],
+          "description": "Where the post is coming from, null if unknown"
         },
         "importedAt": {
-          "type": ["null"],
-          "enum": ["null"],
-          "description": "Date and time when the job posting was created"
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "Date and time when the job posting was imported"
         }
       },
       "required": ["createdByType", "createdById", "source", "importedAt"]
     },
     "jobPostingUrl": {
       "type": "string",
-      "description": "The url provided from the user, if none set null"
+      "description": "The url provided from the user"
     },
     "jobDescription": {
       "type": "string",
-      "description": "short text that provides a summary of the specific role the applicatnt will take on"
+      "description": "Short text that provides a summary of the specific role the applicant will take on"
     },
     "markdownText": {
       "type": "string",
@@ -54,52 +56,242 @@
       ],
       "maxLength": 5000
     },
-    "language": {
-      "type": "array",
-      "description": "Languge the applicant is expected to speak and write in and level if specified",
-      "items": {
-        "type": "object",
-        "properties": {
-          "language": {
-            "type": "string",
-            "description": "Languge expexted to speak as one word",
-            "examples": ["swedish"]
-          },
-          "level": {
-            "type": "string",
-            "description": ""
+    "preferenceSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "All preferences and requirements for the job posting",
+      "properties": {
+        "languages": {
+          "type": "array",
+          "description": "Languages the applicant is expected to speak and write in",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "language": {
+                "type": "string",
+                "description": "Language expected to speak as one word",
+                "examples": ["swedish", "english"]
+              },
+              "level": {
+                "type": ["string", "null"],
+                "description": "Level of proficiency",
+                "examples": ["Beginner", "Intermediate", "Advanced", "Expert"]
+              },
+              "isNative": {
+                "type": ["boolean", "null"],
+                "description": "Whether this is a native language, null if not specified",
+                "default": false
+              }
+            },
+            "required": ["language", "level", "isNative"]
+          }
+        },
+        "locations": {
+          "type": "array",
+          "description": "Locations for the job",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "city": {
+                "type": ["string", "null"],
+                "description": "City of the job location"
+              },
+              "region": {
+                "type": ["string", "null"],
+                "description": "Region of the job location"
+              },
+              "country": {
+                "type": "string",
+                "description": "Country of the job location",
+                "default": "Sverige"
+              },
+              "isRemote": {
+                "type": "boolean",
+                "description": "Whether the job is remote",
+                "default": false
+              },
+              "lat": {
+                "type": ["number", "null"],
+                "description": "Latitude coordinate"
+              },
+              "lng": {
+                "type": ["number", "null"],
+                "description": "Longitude coordinate"
+              }
+            },
+            "required": ["city", "region", "country", "isRemote", "lat", "lng"]
+          }
+        },
+        "workArrangements": {
+          "type": "array",
+          "description": "Work arrangements for the job",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "mode": {
+                "type": "string",
+                "description": "Work arrangement mode",
+                "enum": [
+                  "remote_full_time",
+                  "remote_part_time",
+                  "hybrid_full_time",
+                  "hybrid_part_time",
+                  "onsite_full_time",
+                  "onsite_part_time",
+                  "flexible_full_time",
+                  "flexible_part_time"
+                ]
+              }
+            },
+            "required": ["mode"]
+          }
+        },
+        "employmentTypes": {
+          "type": "array",
+          "description": "Types of employment",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "Type of employment",
+                "enum": ["full_time", "part_time", "contract", "temporary", "internship", "freelance", "trainee"]
+              }
+            },
+            "required": ["type"]
+          }
+        },
+        "salaries": {
+          "type": "array",
+          "description": "Salary information for the job",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "minAmount": {
+                "type": ["number", "null"],
+                "description": "Minimum salary amount"
+              },
+              "maxAmount": {
+                "type": ["number", "null"],
+                "description": "Maximum salary amount"
+              },
+              "currency": {
+                "type": "string",
+                "description": "Salary currency",
+                "default": "SEK"
+              },
+              "period": {
+                "type": "string",
+                "description": "Salary period",
+                "enum": ["monthly", "annually", "hourly", "weekly"],
+                "default": "monthly"
+              },
+              "notes": {
+                "type": ["string", "null"],
+                "description": "Additional salary-related comments from the job posting"
+              }
+            },
+            "required": ["minAmount", "maxAmount", "currency", "period", "notes"]
+          }
+        },
+        "benefits": {
+          "type": "array",
+          "description": "Additional compensation or benefits",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Name of the benefit",
+                "examples": [
+                  "Pension contribution",
+                  "Health insurance",
+                  "Flexible working hours",
+                  "Remote work opportunities",
+                  "Stock options",
+                  "Equity compensation",
+                  "Performance bonus",
+                  "Company shares",
+                  "RSU (Restricted Stock Units)"
+                ]
+              },
+              "description": {
+                "type": ["string", "null"],
+                "description": "Description of the benefit"
+              }
+            },
+            "required": ["name", "description"]
+          }
+        },
+        "requirements": {
+          "type": "array",
+          "description": "Array of the listed requirements for being able to get the job",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "requirement": {
+                "type": "string",
+                "description": "One requirement from the job posting"
+              }
+            },
+            "required": ["requirement"]
+          }
+        },
+        "merits": {
+          "type": "array",
+          "description": "Additional merits that can strengthen the application",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "merit": {
+                "type": "string",
+                "description": "One merit from the job posting"
+              }
+            },
+            "required": ["merit"]
+          }
+        },
+        "applicantQualities": {
+          "type": "array",
+          "description": "Only required qualities mentioned. One-worded snake_case items. Do not include merits.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "quality": {
+                "type": "string",
+                "description": "One quality that should be one worded in snake_case"
+              }
+            },
+            "required": ["quality"]
           }
         }
-      }
-    },
-    "jobRequirements": {
-      "type": "array",
-      "description": "Array of the listed requirements for being able to get the job",
-      "items": {
-        "type": "string",
-        "description": "One requirement from the job posting"
-      }
-    },
-    "merits": {
-      "type": "array",
-      "description": "Additional merits that can strengthen the application",
-      "items": {
-        "type": "string",
-        "description": "One merit from the job posting"
-      }
-    },
-    "applicantQualities": {
-      "type": "array",
-      "description": "Only required qualities mentioned. One-worded snake_case items. Do not include merits.",
-      "items": {
-        "type": "string",
-        "description": "One quality that should be one worded"
-      }
+      },
+      "required": [
+        "languages",
+        "locations",
+        "workArrangements",
+        "employmentTypes",
+        "salaries",
+        "benefits",
+        "requirements",
+        "merits",
+        "applicantQualities"
+      ]
     },
     "status": {
       "type": "string",
       "description": "Current status of the job posting",
-      "enum": ["active", "closed", "draft"]
+      "enum": ["active", "closed", "draft"],
+      "default": "active"
     },
     "endsAt": {
       "type": ["string", "null"],
@@ -115,100 +307,6 @@
       "type": "string",
       "format": "date-time",
       "description": "Date and time when the job posting was last updated"
-    },
-    "location": {
-      "type": ["object", "null"],
-      "description": "The location of the working station for the role",
-      "properties": {
-        "city": {
-          "type": "string",
-          "description": "City of the job location",
-          "default": ""
-        },
-        "country": {
-          "type": "string",
-          "description": "Country of the job location",
-          "default": ""
-        }
-      }
-    },
-    "workArrengment": {
-      "type": "string",
-      "description": "Detailed description of the job's working mode, indicating both location flexibility and work hours arrangement",
-      "enum": [
-        "remote_full_time",
-        "remote_part_time",
-        "hybrid_full_time",
-        "hybrid_part_time",
-        "onsite_full_time",
-        "onsite_part_time",
-        "flexible_full_time",
-        "flexible_part_time"
-      ],
-      "examples": ["remote_full_time", "hybrid_part_time", "onsite_full_time"]
-    },
-    "employmentType": {
-      "type": "string",
-      "description": "Type of employment in terms of working hours and contract type",
-      "enum": ["full_time", "part_time", "contract", "temporary", "internship", "freelance"],
-      "examples": ["full_time", "part_time", "contract"]
-    },
-    "salary": {
-      "type": ["object", "null"],
-      "description": "Salary information extracted from the job posting. AI MUST follow these extraction rules:\n\n1. If a single number is found, use 'type: fixed'\n2. If a salary range (e.g., '30 000 - 40 000') is found, use 'type: range'\n3. If no clear salary is mentioned, use 'type: not_specified'\n4. ALWAYS include currency and period\n5. If uncertain, default to 'SEK' and 'monthly'",
-      "properties": {
-        "type": {
-          "type": "string",
-          "description": "Type of salary specification",
-          "enum": ["range", "fixed", "competitive", "negotiable", "not_specified"],
-          "examples": [
-            "30 000 - 40 000 SEK per month",
-            "45 000 SEK per month",
-            "Competitive salary based on experience",
-            "Salary negotiable depending on qualifications",
-            "Salary not mentioned"
-          ]
-        },
-        "amount": {
-          "type": ["string", "null"],
-          "description": "Salary amount, no currency code",
-          "examples": ["30 000 - 40 000", "45 000"]
-        },
-        "currency": {
-          "type": ["string", "null"],
-          "description": "Salary currency"
-        },
-        "period": {
-          "type": "string",
-          "description": "Salary period",
-          "enum": ["monthly", "annually", "hourly", "weekly"],
-          "default": "monthly"
-        },
-        "benefits": {
-          "type": "array",
-          "description": "Additional compensation or benefits",
-          "items": {
-            "type": "string",
-            "examples": [
-              "Pension contribution",
-              "Health insurance",
-              "Flexible working hours",
-              "Remote work opportunities",
-              "Stock options",
-              "Equity compensation",
-              "Performance bonus",
-              "Company shares",
-              "RSU (Restricted Stock Units)",
-              "others"
-            ]
-          }
-        },
-        "notes": {
-          "type": ["string", "null"],
-          "description": "Additional salary-related comments from the job posting"
-        }
-      },
-      "required": ["type", "amount", "currency", "period"]
     }
   },
   "required": [
@@ -219,17 +317,10 @@
     "jobPostingUrl",
     "jobDescription",
     "markdownText",
-    "language",
-    "jobRequirements",
-    "merits",
-    "applicantQualities",
+    "preferenceSet",
     "status",
     "endsAt",
     "createdAt",
-    "updatedAt",
-    "location",
-    "workArrengment",
-    "employmentType",
-    "salary"
+    "updatedAt"
   ]
 }

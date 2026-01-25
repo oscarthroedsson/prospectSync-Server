@@ -1,9 +1,8 @@
-import { ActionDefinition } from "../../models/action.model";
-import { parseISO, addMinutes, format } from "date-fns";
+import { addMinutes, format, parseISO } from "date-fns";
 
-export async function executeCreateCalendarEvent(
-  action: ActionDefinition
-): Promise<void> {
+import { ActionDefinition } from "../../Types/action.types";
+
+export async function executeCreateCalendarEvent(action: ActionDefinition): Promise<void> {
   const config = action.config;
 
   const title = config.title as string;
@@ -24,7 +23,7 @@ export async function executeCreateCalendarEvent(
   }
 
   console.log(
-    `📅 [ActionExecutor] CREATE_CALENDAR_EVENT - Title: ${title}, Start: ${start}, Duration: ${durationMinutes} min`
+    `📅 [ActionExecutor] CREATE_CALENDAR_EVENT - Title: ${title}, Start: ${start}, Duration: ${durationMinutes} min`,
   );
 
   try {
@@ -54,12 +53,12 @@ export async function executeCreateCalendarEvent(
     };
 
     console.log(
-      `📅 [ActionExecutor] CREATE_CALENDAR_EVENT - Event data prepared: ${JSON.stringify(eventData, null, 2)}`
+      `📅 [ActionExecutor] CREATE_CALENDAR_EVENT - Event data prepared: ${JSON.stringify(eventData, null, 2)}`,
     );
 
     // TODO: Implement actual calendar event creation
     // This requires integration with a calendar service (Google Calendar, Outlook, etc.)
-    // 
+    //
     // Example for Google Calendar API:
     // const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
     // const response = await calendar.events.insert({
@@ -69,11 +68,9 @@ export async function executeCreateCalendarEvent(
     //
     // For now, we log the event data that would be sent
     console.log(
-      `✅ [ActionExecutor] CREATE_CALENDAR_EVENT - Event would be created in calendar ${calendarId || "primary"}`
+      `✅ [ActionExecutor] CREATE_CALENDAR_EVENT - Event would be created in calendar ${calendarId || "primary"}`,
     );
-    console.log(
-      `   Start: ${format(startTime, "yyyy-MM-dd HH:mm")}, End: ${format(endTime, "yyyy-MM-dd HH:mm")}`
-    );
+    console.log(`   Start: ${format(startTime, "yyyy-MM-dd HH:mm")}, End: ${format(endTime, "yyyy-MM-dd HH:mm")}`);
     if (attendees.length > 0) {
       console.log(`   Attendees: ${attendees.join(", ")}`);
     }

@@ -1,6 +1,4 @@
-import { JobPostingSchema } from "../../schemas/jobPostingSchema";
-
-import { zodResponseFormat } from "openai/helpers/zod";
+import JSONSchema from "../../ai/schemas/jobposting.json";
 import { WebScraperService } from "../web-scrape/web-scraper.service";
 import { openAI } from "../../config/openAI";
 
@@ -40,7 +38,7 @@ export class ScanJobPostingService {
         4. markdownText: Generate well-structured Markdown from the posting content
         5. jobDescription: Create a brief summary (MAX 300 characters) of the role
         6. applicantQualities: List ALL required skills and personal qualities. Use underscore (_) instead of spaces in two-word qualities (e.g., "problem_solving")
-        7. Language: Use the SAME language as the source content an specified on the job post. 
+        7. Language: ALWAYS include the langue the job-post is written in the language array, then also add others if job-posting explicitly list or mention other languages. 
         8. Strictly follow the provided JSON schema
       `,
         },
@@ -54,14 +52,23 @@ export class ScanJobPostingService {
           `,
         },
       ],
-      response_format: zodResponseFormat(JobPostingSchema, "job_posting"),
+
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "job_posting",
+          schema: JSONSchema,
+          strict: true, // Tvingar AI:n att följa schemat exakt
+        },
+      },
     });
     console.log("✅ OpenAI API response received");
     console.log("📊 Full completion object:", JSON.stringify(completion, null, 2));
-    console.log("🎯 Parsed result:", JSON.stringify(completion.choices[0].message.parsed, null, 2));
+
     console.log("⚠️ Refusal (if any):", completion.choices[0].message.refusal);
 
-    return completion.choices[0].message.parsed;
+    const parsedData = completion.choices[0].message.parsed;
+    return parsedData;
   }
 
   // kill the process when ever needed

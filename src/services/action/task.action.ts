@@ -1,6 +1,7 @@
-import { ActionDefinition } from "../../models/action.model";
-import { parseISO, format } from "date-fns";
+import { format, parseISO } from "date-fns";
+
 import { getStepRepository } from "../../repositories/step.repository";
+import { ActionDefinition } from "../../Types/action.types";
 
 const ASSIGNEE_TYPES = ["PROCESS_OWNER", "CUSTOM", "COUNTERPART", "ALL_COUNTERPARTS", "SYSTEM"];
 
@@ -18,13 +19,11 @@ export async function executeCreateTask(action: ActionDefinition): Promise<void>
   }
 
   if (assignee && !ASSIGNEE_TYPES.includes(assignee)) {
-    throw new Error(
-      `CREATE_TASK - Invalid assignee: ${assignee}. Must be one of: ${ASSIGNEE_TYPES.join(", ")}`
-    );
+    throw new Error(`CREATE_TASK - Invalid assignee: ${assignee}. Must be one of: ${ASSIGNEE_TYPES.join(", ")}`);
   }
 
   console.log(
-    `✅ [ActionExecutor] CREATE_TASK - Title: ${title}, Due: ${datetime || "(no due date)"}, Assignee: ${assignee}`
+    `✅ [ActionExecutor] CREATE_TASK - Title: ${title}, Due: ${datetime || "(no due date)"}, Assignee: ${assignee}`,
   );
 
   try {
@@ -74,9 +73,7 @@ export async function executeCreateTask(action: ActionDefinition): Promise<void>
       stepId: stepId,
     };
 
-    console.log(
-      `✅ [ActionExecutor] CREATE_TASK - Task data prepared: ${JSON.stringify(taskData, null, 2)}`
-    );
+    console.log(`✅ [ActionExecutor] CREATE_TASK - Task data prepared: ${JSON.stringify(taskData, null, 2)}`);
 
     // TODO: Implement actual task creation
     // This requires integration with a task management system (Asana, Trello, Jira, etc.)
@@ -89,9 +86,7 @@ export async function executeCreateTask(action: ActionDefinition): Promise<void>
     // });
     //
     // For now, we log the task data that would be sent
-    console.log(
-      `✅ [ActionExecutor] CREATE_TASK - Task would be created with assignee: ${assigneeEmail || assignee}`
-    );
+    console.log(`✅ [ActionExecutor] CREATE_TASK - Task would be created with assignee: ${assigneeEmail || assignee}`);
     if (dueDate) {
       console.log(`   Due date: ${format(dueDate, "yyyy-MM-dd HH:mm")}`);
     }

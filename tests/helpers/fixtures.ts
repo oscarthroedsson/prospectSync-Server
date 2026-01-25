@@ -1,10 +1,9 @@
 // Test data fixtures
+import { IJobPostingDTO } from "../../src/Types/job-postingt.types";
+import { TriggerDefinition } from "../../src/Types/trigger.types";
+import { ActionDefinition, ProcessStep } from "../../src/Types/action.types";
 
-import { IJobPosting } from "../../src/models/job-posting.model";
-import { ProcessStep, ActionDefinition } from "../../src/models/action.model";
-import { TriggerDefinition } from "../../src/models/trigger.model";
-
-export const sampleJobPosting: IJobPosting = {
+export const sampleJobPosting: IJobPostingDTO = {
   id: "test-job-id",
   title: "Senior Software Engineer",
   companyName: "Test Company",
@@ -12,36 +11,83 @@ export const sampleJobPosting: IJobPosting = {
   jobPostingUrl: "https://example.com/job/123",
   jobDescription: "We are looking for a senior software engineer",
   markdownText: "# Senior Software Engineer\n\nWe are looking...",
-  language: [
-    { language: "English", level: "Fluent" },
-    { language: "Swedish", level: "Native" },
-  ],
-  jobRequirements: ["5+ years experience", "TypeScript", "Node.js"],
-  merits: ["Remote work", "Flexible hours"],
-  applicantQualities: ["Team player", "Problem solver"],
   status: "active",
   endsAt: "2024-12-31T23:59:59Z",
   createdAt: "2024-01-01T00:00:00Z",
   updatedAt: "2024-01-01T00:00:00Z",
-  location: {
-    city: "Stockholm",
-    country: "Sweden",
-  },
-  workArrengment: "remote",
-  employmentType: "full-time",
-  salary: {
-    type: "monthly",
-    amount: "50000",
-    currency: "SEK",
-    period: "month",
-    benefits: ["Health insurance", "Gym membership"],
-    notes: "Negotiable",
-  },
   createdJobPosting: {
+    id: "",
+    jobPostingId: "",
     createdByType: "system",
     createdById: "user-123",
     source: "url",
-    importedAt: "2024-01-01T00:00:00Z",
+    importedAt: new Date(),
+  },
+
+  preferenceSet: {
+    id: "",
+    jobPostingId: "",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    requirements: [
+      { id: "", requirement: "5+ years experience", preferenceSetId: "" },
+      { id: "", requirement: "TypeScript", preferenceSetId: "" },
+      { id: "", requirement: "Node.js", preferenceSetId: "" },
+    ],
+    merits: [
+      {
+        id: "",
+        preferenceSetId: "",
+        merit: "Remote work",
+      },
+      {
+        id: "",
+        preferenceSetId: "",
+        merit: "Flexible hours",
+      },
+    ],
+    applicantQualities: [
+      {
+        id: "",
+        quality: "Team player",
+        preferenceSetId: "",
+      },
+      {
+        id: "",
+        quality: "Problem solver",
+        preferenceSetId: "",
+      },
+    ],
+
+    locations: [
+      {
+        id: "",
+        city: "Stockholm",
+        region: null,
+        country: "Sweden",
+        isRemote: false,
+        lat: null,
+        lng: null,
+        preferenceSetId: "",
+      },
+    ],
+    workArrangements: [{ id: "", mode: "remote_full_time", preferenceSetId: "" }],
+    employmentTypes: [{ id: "", type: "full_time", preferenceSetId: "" }],
+    salaries: [
+      {
+        id: "",
+        minAmount: 30_000,
+        maxAmount: 45_000,
+        currency: "SEK",
+        period: "month",
+        notes: "Negotiable",
+        preferenceSetId: "",
+      },
+    ],
+    languages: [
+      { id: "", isNative: false, preferenceSetId: "", language: "English", level: "Fluent" },
+      { id: "", isNative: true, preferenceSetId: "", language: "Swedish", level: "Native" },
+    ],
   },
 };
 

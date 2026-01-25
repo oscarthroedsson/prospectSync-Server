@@ -1,6 +1,6 @@
-import { ActionDefinition } from "../../models/action.model";
-import { getEmailService } from "../email/email.service";
 import { getStepRepository } from "../../repositories/step.repository";
+import { ActionDefinition } from "../../Types/action.types";
+import { getEmailService } from "../email/email.service";
 
 export async function executeSendEmail(action: ActionDefinition): Promise<void> {
   const config = action.config;
@@ -59,9 +59,7 @@ export async function executeSendEmail(action: ActionDefinition): Promise<void> 
     }
   }
 
-  console.log(
-    `📧 [ActionExecutor] SEND_EMAIL - To: ${to}, Email: ${recipientEmail}, Subject: ${subject}`
-  );
+  console.log(`📧 [ActionExecutor] SEND_EMAIL - To: ${to}, Email: ${recipientEmail}, Subject: ${subject}`);
 
   await emailService.sendEmail("SEND_EMAIL", {
     to: recipientEmail,
@@ -71,7 +69,5 @@ export async function executeSendEmail(action: ActionDefinition): Promise<void> 
     replyTo: replyTo || undefined,
   });
 
-  console.log(
-    `✅ [ActionExecutor] SEND_EMAIL - Email sent successfully to ${recipientEmail}`
-  );
+  console.log(`✅ [ActionExecutor] SEND_EMAIL - Email sent successfully to ${recipientEmail}`);
 }

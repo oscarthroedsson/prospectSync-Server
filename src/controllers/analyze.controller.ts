@@ -33,7 +33,7 @@ export class AnalyzeController {
       name,
       repoUrl,
     });
-    const token = user?.providers?.find((item) => item.provider === "github")?.token ?? "";
+    const token = user?.providers?.find((item: any) => item.provider === "github")?.token ?? "";
 
     if (!token) {
       res.status(404).json({

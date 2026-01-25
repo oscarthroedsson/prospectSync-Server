@@ -1,5 +1,5 @@
 import { getUserRepository } from "../../repositories/user.repository";
-import { IUser, IUserWithRelations } from "../../models/user.model";
+import { IUser, IUserWithRelations } from "../../Types/user.types";
 
 export class UserService {
   private userRepo = getUserRepository();

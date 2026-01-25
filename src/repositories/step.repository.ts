@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 
-import { ActionDefinition, ProcessStep } from "../models/action.model";
+import { ActionDefinition, ProcessStep } from "../Types/action.types";
 import { getPrismaClient } from "../config/prisma";
 
 export class StepRepository {

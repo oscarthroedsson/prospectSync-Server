@@ -1,6 +1,7 @@
-import { getTriggerRepository } from "../../repositories/trigger.repository";
-import { TriggerDefinition } from "../../models/trigger.model";
 import { format } from "date-fns";
+
+import { getTriggerRepository } from "../../repositories/trigger.repository";
+import { TriggerDefinition } from "../../Types/trigger.types";
 
 export class TriggerService {
   private triggerRepo = getTriggerRepository();
@@ -20,19 +21,14 @@ export class TriggerService {
           try {
             trigger.config = JSON.parse(rawJSON);
           } catch (err) {
-            console.error(
-              `⚠️ [TriggerService] Failed to parse config for trigger ${trigger.id}:`,
-              err
-            );
+            console.error(`⚠️ [TriggerService] Failed to parse config for trigger ${trigger.id}:`, err);
             trigger.config = {};
           }
         }
       }
     }
 
-    console.log(
-      `📊 [TriggerService] Found ${triggers.length} reminder trigger(s) for today`
-    );
+    console.log(`📊 [TriggerService] Found ${triggers.length} reminder trigger(s) for today`);
     return triggers;
   }
 }

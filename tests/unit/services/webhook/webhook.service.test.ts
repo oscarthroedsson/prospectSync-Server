@@ -1,6 +1,7 @@
-import { WebhookService, WebhookSession } from "../../../../src/services/webhook/webhook.service";
-import { WebhookEvent, WebhookType, WebhookStatus } from "../../../../src/models/webhook.model";
 import crypto from "crypto";
+
+import { WebhookService, WebhookSession } from "../../../../src/services/webhook/webhook.service";
+import { WebhookEvent, WebhookStatus, WebhookType } from "../../../../src/Types/webhook.types";
 
 // Mock global fetch
 global.fetch = jest.fn();
@@ -17,11 +18,7 @@ describe("WebhookService", () => {
 
   describe("initiate", () => {
     it("should create webhook session", () => {
-      const session = service.initiate(
-        WebhookEvent.SCAN,
-        WebhookType.JOB_POSTING,
-        "user-123"
-      );
+      const session = service.initiate(WebhookEvent.SCAN, WebhookType.JOB_POSTING, "user-123");
 
       expect(session).toBeInstanceOf(WebhookSession);
     });
@@ -43,13 +40,7 @@ describe("WebhookSession", () => {
   const fullURL = "http://localhost:3001/scan";
 
   beforeEach(() => {
-    session = new WebhookSession(
-      fullURL,
-      secret,
-      WebhookEvent.SCAN,
-      WebhookType.JOB_POSTING,
-      "user-123"
-    );
+    session = new WebhookSession(fullURL, secret, WebhookEvent.SCAN, WebhookType.JOB_POSTING, "user-123");
     jest.clearAllMocks();
   });
 
@@ -70,12 +61,10 @@ describe("WebhookSession", () => {
             "Content-Type": "application/json",
             "x-webhook-signature": expect.any(String),
           }),
-        })
+        }),
       );
 
-      const callBody = JSON.parse(
-        (global.fetch as jest.Mock).mock.calls[0][1].body
-      );
+      const callBody = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
       expect(callBody.status).toBe(WebhookStatus.STARTED);
       expect(callBody.event).toBe(WebhookEvent.SCAN);
       expect(callBody.type).toBe(WebhookType.JOB_POSTING);
@@ -108,9 +97,7 @@ describe("WebhookSession", () => {
       const data = { jobId: "job-1", title: "Test Job" };
       await session.success(data, "Scan completed");
 
-      const callBody = JSON.parse(
-        (global.fetch as jest.Mock).mock.calls[0][1].body
-      );
+      const callBody = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
       expect(callBody.status).toBe(WebhookStatus.SUCCESS);
       expect(callBody.data).toEqual(data);
       expect(callBody.message).toBe("Scan completed");
@@ -126,9 +113,7 @@ describe("WebhookSession", () => {
 
       await session.error("Scan failed");
 
-      const callBody = JSON.parse(
-        (global.fetch as jest.Mock).mock.calls[0][1].body
-      );
+      const callBody = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
       expect(callBody.status).toBe(WebhookStatus.ERROR);
       expect(callBody.error).toBe("Scan failed");
     });
@@ -143,9 +128,7 @@ describe("WebhookSession", () => {
 
       await session.running();
 
-      const callBody = JSON.parse(
-        (global.fetch as jest.Mock).mock.calls[0][1].body
-      );
+      const callBody = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
       expect(callBody.status).toBe(WebhookStatus.RUNNING);
     });
   });

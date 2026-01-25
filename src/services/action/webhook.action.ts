@@ -1,4 +1,4 @@
-import { ActionDefinition } from "../../models/action.model";
+import { ActionDefinition } from "../../Types/action.types";
 
 export async function executeWebhook(action: ActionDefinition): Promise<void> {
   const config = action.config;
@@ -32,14 +32,12 @@ export async function executeWebhook(action: ActionDefinition): Promise<void> {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(
-        `Webhook request failed: ${response.status} ${response.statusText} - ${errorText}`
-      );
+      throw new Error(`Webhook request failed: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const responseData = await response.text();
     console.log(
-      `✅ [ActionExecutor] WEBHOOK - Successfully sent to ${url}, Response: ${responseData.substring(0, 100)}`
+      `✅ [ActionExecutor] WEBHOOK - Successfully sent to ${url}, Response: ${responseData.substring(0, 100)}`,
     );
   } catch (error: any) {
     console.error(`❌ [ActionExecutor] WEBHOOK - Error calling ${url}:`, error);

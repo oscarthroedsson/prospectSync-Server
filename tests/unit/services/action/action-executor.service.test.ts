@@ -1,9 +1,9 @@
 import { ActionExecutor } from "../../../../src/services/action/action-executor.service";
-import { ActionDefinition, ActionConfigType } from "../../../../src/models/action.model";
-import * as sendEmailAction from "../../../../src/services/action/send-email.action";
-import * as webhookAction from "../../../../src/services/action/webhook.action";
 import * as stepStatusAction from "../../../../src/services/action/step-status.action";
+import * as sendEmailAction from "../../../../src/services/action/send-email.action";
 import * as reminderAction from "../../../../src/services/action/reminder.action";
+import * as webhookAction from "../../../../src/services/action/webhook.action";
+import { ActionConfigType, ActionDefinition } from "../../../../src/Types/action.types";
 
 jest.mock("../../../../src/services/action/send-email.action");
 jest.mock("../../../../src/services/action/webhook.action");
@@ -227,9 +227,7 @@ describe("ActionExecutor", () => {
         },
       ];
 
-      (sendEmailAction.executeSendEmail as jest.Mock).mockRejectedValue(
-        new Error("Email failed")
-      );
+      (sendEmailAction.executeSendEmail as jest.Mock).mockRejectedValue(new Error("Email failed"));
       (webhookAction.executeWebhook as jest.Mock).mockResolvedValue(undefined);
 
       await executor.executeActions(actions);

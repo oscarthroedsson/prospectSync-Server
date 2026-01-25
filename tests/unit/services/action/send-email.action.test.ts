@@ -1,7 +1,7 @@
 import { executeSendEmail } from "../../../../src/services/action/send-email.action";
-import { ActionDefinition } from "../../../../src/models/action.model";
-import { getEmailService } from "../../../../src/services/email/email.service";
 import { getStepRepository } from "../../../../src/repositories/step.repository";
+import { getEmailService } from "../../../../src/services/email/email.service";
+import { ActionDefinition } from "../../../../src/Types/action.types";
 
 jest.mock("../../../../src/services/email/email.service");
 jest.mock("../../../../src/repositories/step.repository");
@@ -131,9 +131,7 @@ describe("SendEmail Action", () => {
       },
     };
 
-    await expect(executeSendEmail(action)).rejects.toThrow(
-      "CUSTOM recipient type requires email field to be set"
-    );
+    await expect(executeSendEmail(action)).rejects.toThrow("CUSTOM recipient type requires email field to be set");
   });
 
   it("should throw error when PROCESS_OWNER has no stepId", async () => {

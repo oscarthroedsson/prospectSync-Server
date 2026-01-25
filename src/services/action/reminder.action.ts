@@ -1,7 +1,7 @@
 import { TriggerEventCode } from "@prisma/client";
 import { addDays, format } from "date-fns";
 
-import { ActionDefinition } from "../../models/action.model";
+import { ActionDefinition } from "../../Types/action.types";
 import { getPrismaClient } from "../../config/prisma";
 
 export async function executeCallReminder(action: ActionDefinition): Promise<void> {

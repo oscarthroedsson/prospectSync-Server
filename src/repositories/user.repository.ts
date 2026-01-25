@@ -1,61 +1,57 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 
-import { IUser, IUserWithRelations } from "../models/user.model";
+import { IUser } from "../Types/user.types";
 import { getPrismaClient } from "../config/prisma";
+import { UserMapper } from "../utils/mapper/user.mapper";
 
-// Define the include config once
-const DEFAULT_USER_INCLUDES = {
+export const DEFAULT_PREFERENCE_SET_INCLUDE: Prisma.PreferenceSetInclude = {
+  languages: true,
+  locations: true,
+  workArrangements: true,
+  employmentTypes: true,
+  salaries: true,
+  benefits: true,
+  requirements: true,
+  merits: true,
+  applicantQualities: true,
+};
+
+export const DEFAULT_USER_INCLUDE: Prisma.UserInclude = {
+  // Profildata
+  contactInfos: true,
+  socialLinks: true,
+  qualities: true,
+  knowledgeAreas: true,
+  workExperiences: true,
+  educations: true,
+  cvs: true,
+  coverLetters: true,
+
+  // 🔑 PREFERENCES (ALLT HÄR)
+  preferenceSets: {
+    include: DEFAULT_PREFERENCE_SET_INCLUDE,
+  },
+
+  // Process / ATS
+  applications: true,
+  userProcess: true,
+  processSteps: true,
+  processes: true,
+  userPipelineStepComments: true,
+
+  // Organisation / system
+  company: true,
+  createdJobPostings: true,
+  todos: true,
+  repoParticipants: true,
+
+  // Auth
   providers: {
     include: {
       token: true,
     },
   },
-  applications: {
-    include: {
-      jobPosting: true,
-    },
-  },
-  userProcess: {
-    include: {
-      jobPosting: true,
-
-      process: {
-        include: {
-          steps: true,
-        },
-      },
-
-      steps: {
-        include: {
-          step: true,
-          comments: true,
-        },
-      },
-
-      todos: {
-        include: {
-          todo: {
-            include: {
-              items: true,
-            },
-          },
-        },
-      },
-    },
-  },
-
-  company: true,
-  createdJobPostings: true,
-  userPipelineStepComments: true,
-  processSteps: true,
-  processes: true,
-  todos: true,
-} satisfies Prisma.UserInclude;
-
-// Typ för User med relationer
-type UserWithRelations = Prisma.UserGetPayload<{
-  include: typeof DEFAULT_USER_INCLUDES;
-}>;
+};
 
 export class UserRepository {
   private prisma: PrismaClient;
@@ -75,27 +71,27 @@ export class UserRepository {
       },
     });
 
-    return this.mapToUser(user);
+    return UserMapper.base(user);
   }
 
-  async show(id: string): Promise<IUserWithRelations | null> {
+  async show(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: id },
-      include: DEFAULT_USER_INCLUDES,
+      include: DEFAULT_USER_INCLUDE,
     });
     console.log("user: ", user);
     if (!user) return user;
 
-    return user ? this.mapToUserWithRelations(user) : null;
+    return user ? UserMapper.db(user) : null;
   }
 
-  async showByEmail(email: string): Promise<IUserWithRelations | null> {
+  async showByEmail(email: string) {
     const user = await this.prisma.user.findUnique({
       where: { email },
-      include: DEFAULT_USER_INCLUDES,
+      include: DEFAULT_USER_INCLUDE,
     });
 
-    return user ? this.mapToUserWithRelations(user) : null;
+    return user ? UserMapper.db(user) : null;
   }
 
   async list(): Promise<IUser[]> {
@@ -103,7 +99,7 @@ export class UserRepository {
       orderBy: { name: "asc" },
     });
 
-    return users.map((user) => this.mapToUser(user));
+    return users.map((user) => UserMapper.base(user));
   }
 
   async update(id: string, data: Partial<IUser>): Promise<IUser> {
@@ -118,7 +114,7 @@ export class UserRepository {
       },
     });
 
-    return this.mapToUser(user);
+    return UserMapper.base(user);
   }
 
   async remove(id: string): Promise<IUser> {
@@ -126,7 +122,7 @@ export class UserRepository {
       where: { id },
     });
 
-    return this.mapToUser(user);
+    return UserMapper.base(user);
   }
 
   async findByCompanyId(companyId: string): Promise<IUser[]> {
@@ -135,44 +131,7 @@ export class UserRepository {
       orderBy: { name: "asc" },
     });
 
-    return users.map((user) => this.mapToUser(user));
-  }
-
-  private mapToUser(user: any): IUser {
-    return {
-      id: user.id,
-      name: user.name ?? undefined,
-      email: user.email ?? undefined,
-      emailVerified: user.emailVerified ?? undefined,
-      image: user.image ?? undefined,
-      companyId: user.companyId ?? undefined,
-    };
-  }
-
-  private mapToUserWithRelations(user: UserWithRelations): IUserWithRelations {
-    return {
-      ...this.mapToUser(user),
-      providers: user.providers?.map((p) => ({
-        id: p.id,
-        provider: p.provider,
-        providerAccountId: p.providerAccountId,
-        token: p.token ? p.token : undefined,
-      })),
-      applications: user.applications?.map((a) => ({
-        id: a.id,
-        jobPostingId: a.jobPostingId,
-        status: a.status,
-        appliedAt: a.appliedAt,
-        gotJob: a.gotJob,
-      })),
-      company: user.company
-        ? {
-            id: user.company.id,
-            name: user.company.name,
-            logo: user.company.logo ?? undefined,
-          }
-        : undefined,
-    };
+    return users.map((user) => UserMapper.base(user));
   }
 }
 

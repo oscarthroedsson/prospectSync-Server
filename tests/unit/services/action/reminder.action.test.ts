@@ -1,7 +1,7 @@
 import { addDays, format } from "date-fns";
 
 import { executeCallReminder } from "../../../../src/services/action/reminder.action";
-import { ActionDefinition } from "../../../../src/models/action.model";
+import { ActionDefinition } from "../../../../src/Types/action.types";
 import { getPrismaClient } from "../../../../src/config/prisma";
 import { mockPrismaClient } from "../../../helpers/mocks";
 

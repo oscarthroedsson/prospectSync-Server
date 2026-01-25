@@ -1,6 +1,6 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 
-import { TriggerDefinition } from "../models/trigger.model";
+import { TriggerDefinition } from "../Types/trigger.types";
 import { getPrismaClient } from "../config/prisma";
 
 export class TriggerRepository {

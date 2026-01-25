@@ -1,6 +1,6 @@
 import { getStepRepository } from "../../repositories/step.repository";
+import { ProcessStep } from "../../Types/action.types";
 import { cacheService } from "../cache/cache.service";
-import { ProcessStep } from "../../models/action.model";
 
 export class StepService {
   private stepRepo = getStepRepository();

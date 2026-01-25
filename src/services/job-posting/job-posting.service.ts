@@ -1,13 +1,15 @@
 import { getJobPostingRepository } from "../../repositories/job-posting.repository";
+import { IJobPostingDTO, IJobPostingCreateDTO, IJobPostingUpdateDTO } from "../../Types/job-postingt.types";
 import { cacheService } from "../cache/cache.service";
-import { IJobPosting } from "../../models/job-posting.model";
+import { JobPostingMapper } from "../../utils/mapper/job-posting.mapper";
 
 export class JobPostingService {
   private jobPostingRepo = getJobPostingRepository();
   private cache = cacheService.jobPosting;
 
-  async create(data: IJobPosting): Promise<IJobPosting> {
-    const jobPosting = await this.jobPostingRepo.create(data);
+  async create(data: IJobPostingCreateDTO): Promise<IJobPostingDTO> {
+    const prismaResult = await this.jobPostingRepo.create(data);
+    const jobPosting = JobPostingMapper.db(prismaResult);
 
     // Cache the newly created job posting
     await this.cache.set(jobPosting.jobPostingUrl, jobPosting);
@@ -15,13 +17,14 @@ export class JobPostingService {
     return jobPosting;
   }
 
-  async getById(id: string): Promise<IJobPosting | null> {
+  async showById(id: string): Promise<IJobPostingDTO | null> {
     if (!id) throw new Error("ID is required");
 
-    return this.jobPostingRepo.show(id);
+    const prismaResult = await this.jobPostingRepo.show(id);
+    return prismaResult ? JobPostingMapper.db(prismaResult) : null;
   }
 
-  async getByUrl(url: string): Promise<IJobPosting | null> {
+  async showByUrl(url: string): Promise<IJobPostingDTO | null> {
     if (!url) throw new Error("URL is required");
 
     // Check cache first
@@ -29,7 +32,8 @@ export class JobPostingService {
     if (cached) return cached;
 
     // Fetch from database
-    const jobPosting = await this.jobPostingRepo.showByUrl(url);
+    const prismaResult = await this.jobPostingRepo.showByUrl(url);
+    const jobPosting = prismaResult ? JobPostingMapper.db(prismaResult) : null;
 
     // Cache if found
     if (jobPosting) await this.cache.set(url, jobPosting);
@@ -37,16 +41,23 @@ export class JobPostingService {
     return jobPosting;
   }
 
-  async ensure(data: IJobPosting): Promise<IJobPosting | null> {
-    const jobPosting = await this.jobPostingRepo.ensure(data);
+  async getByUrl(url: string): Promise<IJobPostingDTO | null> {
+    return this.showByUrl(url);
+  }
+
+  async ensure(data: IJobPostingCreateDTO): Promise<IJobPostingDTO | null> {
+    const prismaResult = await this.jobPostingRepo.ensure(data);
+    const jobPosting = prismaResult ? JobPostingMapper.db(prismaResult) : null;
+
     // Update cache
     if (jobPosting) this.cache.set(jobPosting.jobPostingUrl, jobPosting);
 
     return jobPosting;
   }
 
-  async upsert(data: IJobPosting): Promise<IJobPosting> {
-    const jobPosting = await this.jobPostingRepo.upsert(data);
+  async upsert(data: IJobPostingCreateDTO): Promise<IJobPostingDTO> {
+    const prismaResult = await this.jobPostingRepo.upsert(data);
+    const jobPosting = JobPostingMapper.db(prismaResult);
 
     // Update cache
     await this.cache.set(jobPosting.jobPostingUrl, jobPosting);
@@ -54,10 +65,11 @@ export class JobPostingService {
     return jobPosting;
   }
 
-  async update(id: string, data: Partial<IJobPosting>): Promise<IJobPosting> {
+  async update(id: string, data: IJobPostingUpdateDTO): Promise<IJobPostingDTO> {
     if (!id) throw new Error("ID is required");
 
-    const jobPosting = await this.jobPostingRepo.update(id, data);
+    const prismaResult = await this.jobPostingRepo.update(id, data);
+    const jobPosting = JobPostingMapper.db(prismaResult);
 
     // Invalidate cache
     this.cache.delete(jobPosting.jobPostingUrl);
@@ -68,7 +80,9 @@ export class JobPostingService {
   async delete(url: string): Promise<void> {
     if (!url) throw new Error("URL is required");
 
-    const existing = await this.jobPostingRepo.showByUrl(url);
+    const prismaResult = await this.jobPostingRepo.showByUrl(url);
+    const existing = prismaResult ? JobPostingMapper.db(prismaResult) : null;
+    
     if (!existing || !existing.id) throw new Error("Job posting not found");
 
     // Delete using repository
@@ -78,27 +92,16 @@ export class JobPostingService {
     this.cache.delete(url);
   }
 
-  async updateWorkArrangement(jobPostingId: string, workMode: string): Promise<void> {
-    if (!jobPostingId) throw new Error("Job posting ID is required");
-    if (!workMode) throw new Error("Work mode is required");
-
-    await this.jobPostingRepo.updateWorkArrengment(jobPostingId, workMode);
-
-    // Invalidate cache for this job posting
-    const jobPosting = await this.jobPostingRepo.show(jobPostingId);
-    if (jobPosting) {
-      this.cache.delete(jobPosting.jobPostingUrl);
-    }
-  }
-
-  async expiringSoon(daysUntilExpiration: number): Promise<IJobPosting[]> {
+  async expiringSoon(daysUntilExpiration: number): Promise<IJobPostingDTO[]> {
     if (daysUntilExpiration < 0) throw new Error("Days must be positive");
 
-    return this.jobPostingRepo.findExpiringSoon(daysUntilExpiration);
+    const prismaResults = await this.jobPostingRepo.findExpiringSoon(daysUntilExpiration);
+    return prismaResults.map(JobPostingMapper.db);
   }
 
-  async findExpired(): Promise<IJobPosting[]> {
-    return this.jobPostingRepo.findExpired();
+  async findExpired(): Promise<IJobPostingDTO[]> {
+    const prismaResults = await this.jobPostingRepo.findExpired();
+    return prismaResults.map(JobPostingMapper.db);
   }
 }
 

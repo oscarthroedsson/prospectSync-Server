@@ -1,25 +1,33 @@
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
-import { CreatedByEnum, JobSourceEnum, Prisma, PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 
-import { IJobPosting } from "../models/job-posting.model";
+import { IJobPostingCreateDTO, IJobPostingUpdateDTO } from "../Types/job-postingt.types";
 import { getPrismaClient } from "../config/prisma";
 
 // Define the include config once
-const jobPostingInclude = {
-  language: true,
-  jobRequirements: true,
-  merits: true,
-  applicantQualities: true,
-  location: true,
-  salary: true,
-  employmentType: true,
-  workArrengment: true,
+export const DEFAULT_JOB_POSTING_INCLUDE = {
   createdJobPosting: true,
+  company: true,
+  preferenceSet: {
+    include: {
+      languages: true,
+      locations: true,
+      workArrangements: true,
+      employmentTypes: true,
+      salaries: true,
+      benefits: true,
+      requirements: true,
+      merits: true,
+      applicantQualities: true,
+    },
+  },
+  jobApplicants: true,
+  userProcesses: true,
 } satisfies Prisma.JobPostingInclude;
 
 // Type for job posting with all relations
-type JobPostingWithRelations = Prisma.JobPostingGetPayload<{
-  include: typeof jobPostingInclude;
+export type IJobPostingFull = Prisma.JobPostingGetPayload<{
+  include: typeof DEFAULT_JOB_POSTING_INCLUDE;
 }>;
 
 export class JobPostingRepository {
@@ -29,7 +37,9 @@ export class JobPostingRepository {
     this.prisma = getPrismaClient();
   }
 
-  async create(data: IJobPosting): Promise<IJobPosting> {
+  async create(data: IJobPostingCreateDTO): Promise<IJobPostingFull> {
+    const preferenceSet = data.preferenceSet;
+
     const job = await this.prisma.jobPosting.create({
       data: {
         title: data.title,
@@ -41,135 +51,170 @@ export class JobPostingRepository {
         status: data.status || "active",
         endsAt: data.endsAt,
 
-        language: data.language
-          ? {
-              create: data.language.map((lang) => ({
-                language: lang.language,
-                level: lang.level,
-              })),
-            }
-          : undefined,
-
-        jobRequirements: data.jobRequirements
-          ? {
-              create: data.jobRequirements.map((req) => ({
-                requirement: req,
-              })),
-            }
-          : undefined,
-
-        merits: data.merits
-          ? {
-              create: data.merits.map((merit) => ({
-                merit: merit,
-              })),
-            }
-          : undefined,
-
-        applicantQualities: data.applicantQualities
-          ? {
-              create: data.applicantQualities.map((quality) => ({
-                quality: quality,
-              })),
-            }
-          : undefined,
-
-        location: data.location
+        // Skapa nested PreferenceSet
+        preferenceSet: preferenceSet
           ? {
               create: {
-                city: data.location.city,
-                country: data.location.country,
+                languages:
+                  preferenceSet.languages && preferenceSet.languages.length > 0
+                    ? {
+                        create: preferenceSet.languages.map((l) => ({
+                          language: l.language,
+                          level: l.level,
+                          isNative: l.isNative,
+                        })),
+                      }
+                    : undefined,
+
+                requirements:
+                  preferenceSet.requirements && preferenceSet.requirements.length > 0
+                    ? {
+                        create: preferenceSet.requirements.map((r) => ({
+                          requirement: r.requirement,
+                        })),
+                      }
+                    : undefined,
+
+                merits:
+                  preferenceSet.merits && preferenceSet.merits.length > 0
+                    ? {
+                        create: preferenceSet.merits.map((m) => ({
+                          merit: m.merit,
+                        })),
+                      }
+                    : undefined,
+
+                applicantQualities:
+                  preferenceSet.applicantQualities && preferenceSet.applicantQualities.length > 0
+                    ? {
+                        create: preferenceSet.applicantQualities.map((aq) => ({
+                          quality: aq.quality,
+                        })),
+                      }
+                    : undefined,
+
+                locations:
+                  preferenceSet.locations && preferenceSet.locations.length > 0
+                    ? {
+                        create: preferenceSet.locations.map((loc) => ({
+                          city: loc.city,
+                          region: loc.region,
+                          country: loc.country,
+                          isRemote: loc.isRemote,
+                          lat: loc.lat,
+                          lng: loc.lng,
+                        })),
+                      }
+                    : undefined,
+
+                workArrangements:
+                  preferenceSet.workArrangements && preferenceSet.workArrangements.length > 0
+                    ? {
+                        create: preferenceSet.workArrangements.map((wa) => ({
+                          mode: wa.mode,
+                        })),
+                      }
+                    : undefined,
+
+                employmentTypes:
+                  preferenceSet.employmentTypes && preferenceSet.employmentTypes.length > 0
+                    ? {
+                        create: preferenceSet.employmentTypes.map((et) => ({
+                          type: et.type,
+                        })),
+                      }
+                    : undefined,
+
+                salaries:
+                  preferenceSet.salaries && preferenceSet.salaries.length > 0
+                    ? {
+                        create: preferenceSet.salaries.map((s) => ({
+                          minAmount: s.minAmount,
+                          maxAmount: s.maxAmount,
+                          currency: s.currency,
+                          period: s.period,
+                          notes: s.notes,
+                        })),
+                      }
+                    : undefined,
+
+                benefits:
+                  preferenceSet.benefits && preferenceSet.benefits.length > 0
+                    ? {
+                        create: preferenceSet.benefits.map((b) => ({
+                          name: b.name,
+                          description: b.description,
+                        })),
+                      }
+                    : undefined,
               },
             }
           : undefined,
 
-        workArrengment: data.workArrengment
+        createdJobPosting: data.createdJobPosting
           ? {
               create: {
-                mode: data.workArrengment,
+                createdByType: data.createdJobPosting.createdByType || "system",
+                createdById: data.createdJobPosting.createdById || null,
+                source: data.createdJobPosting.source || null,
+                importedAt: data.createdJobPosting.importedAt || new Date(),
               },
             }
           : undefined,
-
-        employmentType: data.employmentType
-          ? {
-              create: {
-                type: data.employmentType,
-              },
-            }
-          : undefined,
-
-        salary: data.salary
-          ? {
-              create: {
-                type: data.salary.type,
-                amount: data.salary.amount,
-                currency: data.salary.currency || "",
-                period: data.salary.period,
-                benefits: data.salary.benefits,
-                notes: data.salary.notes,
-              },
-            }
-          : undefined,
-
-        createdJobPosting: {
-          create: {
-            createdByType: (data.createdJobPosting.createdByType || "system") as CreatedByEnum,
-            createdById: data.createdJobPosting.createdById || null,
-            source: (data.createdJobPosting.source as JobSourceEnum) || null,
-            importedAt: data.createdJobPosting.importedAt || new Date(),
-          },
-        },
       },
-      include: jobPostingInclude,
+      include: DEFAULT_JOB_POSTING_INCLUDE,
     });
 
-    return this.mapToJobPosting(job);
+    return job;
   }
 
-  async show(id: string): Promise<IJobPosting | null> {
+  async show(id: string): Promise<IJobPostingFull | null> {
     const job = await this.prisma.jobPosting.findUnique({
       where: { id },
-      include: jobPostingInclude,
+      include: DEFAULT_JOB_POSTING_INCLUDE,
     });
 
-    return job ? this.mapToJobPosting(job) : null;
+    return job;
   }
 
-  async showByUrl(url: string): Promise<IJobPosting | null> {
+  async showByUrl(url: string): Promise<IJobPostingFull | null> {
     const job = await this.prisma.jobPosting.findFirst({
       where: { jobPostingUrl: url },
-      include: jobPostingInclude,
+      include: DEFAULT_JOB_POSTING_INCLUDE,
     });
 
-    return job ? this.mapToJobPosting(job) : null;
+    return job;
   }
 
-  async ensure(data: IJobPosting): Promise<IJobPosting | null> {
+  async ensure(data: IJobPostingCreateDTO): Promise<IJobPostingFull | null> {
     try {
       return await this.create(data);
     } catch (err) {
       if ((err as PrismaClientKnownRequestError)?.code === "P2002") {
         // Unique constraint violation - job already exists
-        if (data.id) return await this.show(data.id);
-        return null;
+        // Try to find by URL instead
+        return await this.showByUrl(data.jobPostingUrl);
       }
       throw err;
     }
   }
 
-  async upsert(data: IJobPosting): Promise<IJobPosting> {
+  async upsert(data: IJobPostingCreateDTO): Promise<IJobPostingFull> {
     try {
       return await this.create(data);
     } catch (err) {
-      if ((err as PrismaClientKnownRequestError)?.code === "P2002" && data.id) {
-        return await this.update(data.id, data);
+      if ((err as PrismaClientKnownRequestError)?.code === "P2002") {
+        // Find existing by URL and update it
+        const existing = await this.showByUrl(data.jobPostingUrl);
+        if (existing) {
+          return await this.update(existing.id, data);
+        }
       }
       throw err;
     }
   }
 
-  async update(id: string, data: Partial<IJobPosting>): Promise<IJobPosting> {
+  async update(id: string, data: IJobPostingUpdateDTO): Promise<IJobPostingFull> {
     const job = await this.prisma.jobPosting.update({
       where: { id },
       data: {
@@ -181,91 +226,23 @@ export class JobPostingRepository {
         ...(data.markdownText && { markdownText: data.markdownText }),
         ...(data.status && { status: data.status }),
         ...(data.endsAt && { endsAt: data.endsAt }),
-
-        ...(data.location && {
-          location: {
-            upsert: {
-              where: { jobPostingId: id },
-              update: {
-                city: data.location.city,
-                country: data.location.country,
-              },
-              create: {
-                city: data.location.city,
-                country: data.location.country,
-              },
-            },
-          },
-        }),
-
-        ...(data.workArrengment && {
-          workArrengment: {
-            upsert: {
-              where: { jobPostingId: id },
-              update: { mode: data.workArrengment },
-              create: { mode: data.workArrengment },
-            },
-          },
-        }),
-
-        ...(data.employmentType && {
-          employmentType: {
-            upsert: {
-              where: { jobPostingId: id },
-              update: { type: data.employmentType },
-              create: { type: data.employmentType },
-            },
-          },
-        }),
-
-        ...(data.salary && {
-          salary: {
-            upsert: {
-              where: { jobPostingId: id },
-              update: {
-                ...(data.salary.type && { type: data.salary.type }),
-                ...(data.salary.amount && { amount: data.salary.amount }),
-                ...(data.salary.currency && { currency: data.salary.currency }),
-                ...(data.salary.period && { period: data.salary.period }),
-                ...(data.salary.benefits && { benefits: data.salary.benefits }),
-                ...(data.salary.notes && { notes: data.salary.notes }),
-              },
-              create: {
-                type: data.salary.type,
-                amount: data.salary.amount,
-                currency: data.salary.currency || "",
-                period: data.salary.period,
-                benefits: data.salary.benefits || [],
-                notes: data.salary.notes,
-              },
-            },
-          },
-        }),
       } as Prisma.JobPostingUpdateInput,
-      include: jobPostingInclude,
+      include: DEFAULT_JOB_POSTING_INCLUDE,
     });
 
-    return this.mapToJobPosting(job);
+    return job;
   }
 
-  async remove(id: string): Promise<IJobPosting> {
+  async remove(id: string): Promise<IJobPostingFull> {
     const job = await this.prisma.jobPosting.delete({
       where: { id },
-      include: jobPostingInclude,
+      include: DEFAULT_JOB_POSTING_INCLUDE,
     });
 
-    return this.mapToJobPosting(job);
+    return job;
   }
 
-  async updateWorkArrengment(jobPostingId: string, workMode: string): Promise<void> {
-    await this.prisma.jobPostingWorkArrengment.upsert({
-      where: { jobPostingId },
-      update: { mode: workMode },
-      create: { jobPostingId, mode: workMode },
-    });
-  }
-
-  async findExpiringSoon(daysUntilExpiration: number): Promise<IJobPosting[]> {
+  async findExpiringSoon(daysUntilExpiration: number): Promise<IJobPostingFull[]> {
     const now = new Date();
     const futureDate = new Date(now.getTime() + daysUntilExpiration * 24 * 60 * 60 * 1000);
 
@@ -277,14 +254,14 @@ export class JobPostingRepository {
         },
         status: { not: "expired" },
       },
-      include: jobPostingInclude,
+      include: DEFAULT_JOB_POSTING_INCLUDE,
       orderBy: { endsAt: "asc" },
     });
 
-    return jobs.map((job) => this.mapToJobPosting(job));
+    return jobs;
   }
 
-  async findExpired(): Promise<IJobPosting[]> {
+  async findExpired(): Promise<IJobPostingFull[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -293,62 +270,11 @@ export class JobPostingRepository {
         endsAt: { lt: today.toISOString() },
         status: { not: "expired" },
       },
-      include: jobPostingInclude,
+      include: DEFAULT_JOB_POSTING_INCLUDE,
       orderBy: { endsAt: "desc" },
     });
 
-    return jobs.map((job) => this.mapToJobPosting(job));
-  }
-
-  private mapToJobPosting(job: JobPostingWithRelations): IJobPosting {
-    return {
-      id: job.id,
-      title: job.title,
-      companyName: job.companyName,
-      companyLogo: job.companyLogo ?? undefined,
-      jobPostingUrl: job.jobPostingUrl,
-      jobDescription: job.jobDescription ?? undefined,
-      markdownText: job.markdownText,
-      language: job.language.map((l) => ({
-        language: l.language ?? "",
-        level: l.level ?? "",
-      })),
-      jobRequirements: job.jobRequirements.map((r) => r.requirement),
-      merits: job.merits.map((m) => m.merit),
-      applicantQualities: job.applicantQualities.map((aq) => aq.quality),
-      status: job.status,
-      endsAt: job.endsAt ?? undefined,
-      createdAt: job.createdAt,
-      updatedAt: job.updatedAt,
-      location: job.location
-        ? ({
-            city: job.location.city ?? "",
-            region: job.location.region ?? undefined,
-            country: job.location.country,
-            isRemote: job.location.isRemote,
-            lat: job.location.lat ?? undefined,
-            lng: job.location.lng ?? undefined,
-          } as IJobPosting["location"])
-        : undefined,
-      workArrengment: job.workArrengment?.mode,
-      employmentType: job.employmentType?.type,
-      salary: job.salary
-        ? {
-            type: job.salary.type,
-            amount: job.salary.amount ?? undefined,
-            currency: job.salary.currency ?? undefined,
-            period: job.salary.period,
-            benefits: job.salary.benefits,
-            notes: job.salary.notes ?? undefined,
-          }
-        : undefined,
-      createdJobPosting: {
-        createdByType: job.createdJobPosting?.createdByType ?? "system",
-        createdById: job.createdJobPosting?.createdById ?? undefined,
-        source: job.createdJobPosting?.source ?? undefined,
-        importedAt: job.createdJobPosting?.importedAt?.toISOString() ?? undefined,
-      },
-    };
+    return jobs;
   }
 }
 

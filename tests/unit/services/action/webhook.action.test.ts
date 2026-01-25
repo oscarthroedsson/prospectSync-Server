@@ -1,5 +1,5 @@
 import { executeWebhook } from "../../../../src/services/action/webhook.action";
-import { ActionDefinition } from "../../../../src/models/action.model";
+import { ActionDefinition } from "../../../../src/Types/action.types";
 
 // Mock global fetch
 global.fetch = jest.fn();
@@ -74,7 +74,7 @@ describe("Webhook Action", () => {
           Authorization: "Bearer token",
           "X-Custom": "value",
         }),
-      })
+      }),
     );
   });
 
@@ -103,7 +103,7 @@ describe("Webhook Action", () => {
       "https://example.com/webhook",
       expect.objectContaining({
         method: "GET",
-      })
+      }),
     );
   });
 
@@ -131,7 +131,7 @@ describe("Webhook Action", () => {
       "https://example.com/webhook",
       expect.objectContaining({
         method: "POST",
-      })
+      }),
     );
   });
 

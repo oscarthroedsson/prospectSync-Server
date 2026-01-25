@@ -1,6 +1,7 @@
 import crypto from "crypto";
+
+import { WebhookEvent, WebhookPayload, WebhookStatus, WebhookType } from "../../Types/webhook.types";
 import { env } from "../../config/env";
-import { WebhookPayload, WebhookEvent, WebhookType, WebhookStatus } from "../../models/webhook.model";
 
 export class WebhookService {
   private baseURL: string;
@@ -30,7 +31,7 @@ export class WebhookSession {
     private secret: string,
     private event: WebhookEvent,
     private typ: WebhookType,
-    private payloadOwner?: string
+    private payloadOwner?: string,
   ) {}
 
   private async send(payload: WebhookPayload): Promise<void> {

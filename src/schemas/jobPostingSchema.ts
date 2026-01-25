@@ -21,52 +21,87 @@ export const JobPostingSchema = z.object({
 
   markdownText: z.string().max(5000),
 
-  language: z.array(
-    z.object({
-      language: z.string(),
-      level: z.string().nullable(),
-    })
-  ),
-
-  jobRequirements: z.array(z.string()),
-  merits: z.array(z.string()),
-
-  applicantQualities: z.array(z.string().regex(/^[a-z]+(_[a-z]+)*$/, "Single or snake_case only")),
-
   status: z.enum(["active", "closed", "draft"]),
 
   endsAt: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 
-  location: z
-    .object({
-      city: z.string().default(""),
-      country: z.string().default(""),
-    })
-    .nullable(),
+  // Nested PreferenceSet structure
+  preferenceSet: z.object({
+    languages: z.array(
+      z.object({
+        language: z.string(),
+        level: z.string().nullable(),
+        isNative: z.boolean().nullable(),
+      }),
+    ),
 
-  workArrengment: z.enum([
-    "remote_full_time",
-    "remote_part_time",
-    "hybrid_full_time",
-    "hybrid_part_time",
-    "onsite_full_time",
-    "onsite_part_time",
-    "flexible_full_time",
-    "flexible_part_time",
-  ]),
+    requirements: z.array(
+      z.object({
+        requirement: z.string(),
+      }),
+    ),
 
-  employmentType: z.enum(["full_time", "part_time", "contract", "temporary", "internship", "freelance"]),
+    merits: z.array(
+      z.object({
+        merit: z.string(),
+      }),
+    ),
 
-  salary: z
-    .object({
-      type: z.enum(["range", "fixed", "competitive", "negotiable", "not_specified"]),
-      amount: z.string().nullable(),
-      currency: z.string().nullable(),
-      period: z.enum(["monthly", "annually", "hourly", "weekly"]),
-      benefits: z.array(z.string()),
-      notes: z.string().nullable(),
-    })
-    .nullable(),
+    applicantQualities: z.array(
+      z.object({
+        quality: z.string().regex(/^[a-z]+(_[a-z]+)*$/, "Single or snake_case only"),
+      }),
+    ),
+
+    locations: z.array(
+      z.object({
+        city: z.string().nullable(),
+        region: z.string().nullable(),
+        country: z.string(),
+        isRemote: z.boolean(),
+        lat: z.number().nullable(),
+        lng: z.number().nullable(),
+      }),
+    ),
+
+    workArrangements: z.array(
+      z.object({
+        mode: z.enum([
+          "remote_full_time",
+          "remote_part_time",
+          "hybrid_full_time",
+          "hybrid_part_time",
+          "onsite_full_time",
+          "onsite_part_time",
+          "flexible_full_time",
+          "flexible_part_time",
+        ]),
+      }),
+    ),
+
+    employmentTypes: z.array(
+      z.object({
+        type: z.enum(["full_time", "part_time", "contract", "temporary", "internship", "freelance", "trainee"]),
+      }),
+    ),
+
+    salaries: z.array(
+      z.object({
+        minAmount: z.number().nullable(),
+        maxAmount: z.number().nullable(),
+        currency: z.string(),
+        period: z.string(),
+        notes: z.string().nullable(),
+      }),
+    ),
+
+    benefits: z.array(
+      z.object({
+        name: z.string(),
+        description: z.string().nullable(),
+      }),
+    ),
+  }),
 });

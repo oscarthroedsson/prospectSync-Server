@@ -1,10 +1,8 @@
-import { ActionDefinition } from "../../models/action.model";
+import { ActionDefinition } from "../../Types/action.types";
 
 const VALID_STATUSES = ["completed", "skipped", "in_progress", "failed"];
 
-export async function executeUpdateStepStatus(
-  action: ActionDefinition
-): Promise<void> {
+export async function executeUpdateStepStatus(action: ActionDefinition): Promise<void> {
   const config = action.config;
 
   const status = config.status as string;
@@ -15,9 +13,7 @@ export async function executeUpdateStepStatus(
   }
 
   if (!VALID_STATUSES.includes(status)) {
-    throw new Error(
-      `UPDATE_STEP_STATUS - Invalid status: ${status}. Must be one of: ${VALID_STATUSES.join(", ")}`
-    );
+    throw new Error(`UPDATE_STEP_STATUS - Invalid status: ${status}. Must be one of: ${VALID_STATUSES.join(", ")}`);
   }
 
   if (!stepId) {
@@ -27,6 +23,6 @@ export async function executeUpdateStepStatus(
   // NOTE: ProcessStep model in Prisma schema does not have a 'status' field
   // This action is currently a no-op until the schema is updated to support status tracking
   console.log(
-    `⚠️ [ActionExecutor] UPDATE_STEP_STATUS - StepId: ${stepId}, Status: ${status} (action not implemented - schema does not support status field)`
+    `⚠️ [ActionExecutor] UPDATE_STEP_STATUS - StepId: ${stepId}, Status: ${status} (action not implemented - schema does not support status field)`,
   );
 }
