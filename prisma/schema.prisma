@@ -157,8 +157,8 @@ model User {
 
 model ContactInfo {
   id     String @id @default(cuid())
-  user   User   @relation(fields: [userId], references: [id])
-  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique
 
   type       String // e.g., "phone", "address"
   value      String // e.g., "+46 70 123 45 67", "Stockholm, Sweden"
@@ -167,34 +167,39 @@ model ContactInfo {
   city       String?
   postalCode String?
 
+  @@index([userId])
   @@map("contact_infos")
 }
 
 model SocialLink {
   id     String @id @default(cuid())
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
 
   platform String // e.g., LinkedIn, GitHub
   url      String
 
+  @@unique([userId, platform, url], name: "unique_user_social_link")
+  @@index([userId])
   @@map("social_links")
 }
 
 model Quality {
   id     String @id @default(cuid())
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
 
   name  String
   level String? // e.g., Beginner, Intermediate, Advanced
 
+  @@unique([userId, name, level], name: "unique_user_quality")
+  @@index([userId])
   @@map("qualities")
 }
 
 model KnowledgeArea {
   id     String @id @default(cuid())
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
 
   name        String // e.g., TypeScript, Project Management
@@ -202,12 +207,13 @@ model KnowledgeArea {
   years       Float? // Optional: Years of experience
   certificate String? // Optional certificate name
 
+  @@index([userId])
   @@map("knowledge_areas")
 }
 
 model WorkExperience {
   id     String @id @default(cuid())
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
 
   companyName String
@@ -216,12 +222,13 @@ model WorkExperience {
   endDate     DateTime?
   description String?
 
+  @@index([userId])
   @@map("work_experiences")
 }
 
 model Education {
   id     String @id @default(cuid())
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
 
   institution  String
@@ -234,36 +241,40 @@ model Education {
   // Relation till flera filer
   files EducationFile[]
 
+  @@index([userId])
   @@map("educations")
 }
 
 model EducationFile {
   id          String    @id @default(cuid())
-  education   Education @relation(fields: [educationId], references: [id])
+  education   Education @relation(fields: [educationId], references: [id], onDelete: Cascade)
   educationId String
 
-  fileUrl   String // t.ex. länk till S3
+  fileUrl   String // t.ex. länk till S3 
   fileType  String? // t.ex. "Diploma", "Transcript"
   createdAt DateTime @default(now())
 
+  @@index([educationId])
   @@map("education_files")
 }
 
 model CV {
   id     String @id @default(cuid())
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
 
   fileUrl   String
   createdAt DateTime @default(now())
   isDefault Boolean  @default(false) // Mark default CV
 
+  @@unique([userId, fileUrl], name: "unique_user_cv_file")
+  @@index([userId])
   @@map("cvs")
 }
 
 model CoverLetter {
   id     String @id @default(cuid())
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
 
   fileUrl   String?
@@ -271,6 +282,7 @@ model CoverLetter {
   createdAt DateTime @default(now())
   isDefault Boolean  @default(false) // Mark default cover letter
 
+  @@index([userId])
   @@map("cover_letters")
 }
 
@@ -286,6 +298,7 @@ model Provider {
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
   @@map("providers")
 }
 
@@ -302,6 +315,7 @@ model Token {
 
   provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
+  @@index([providerId])
   @@map("Tokens")
 }
 
@@ -336,7 +350,7 @@ model JobPosting {
 
   createdJobPosting CreatedJobPosting?
 
-  company   Company? @relation(fields: [companyId], references: [id])
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
   companyId String?
 
   preferenceSet PreferenceSet[] // pref / demands for the job application
@@ -352,11 +366,11 @@ model PreferenceSet {
   id String @id @default(cuid())
 
   // Koppling till kandidat (om det är kandidatens egna preferenser)
-  user   User?   @relation(fields: [userId], references: [id])
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String?
 
   // Koppling till jobbannons (om det är rekryterarens preferens/krav)
-  jobPosting   JobPosting? @relation(fields: [jobPostingId], references: [id])
+  jobPosting   JobPosting? @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
   jobPostingId String?
 
   createdAt DateTime @default(now())
@@ -373,6 +387,8 @@ model PreferenceSet {
   merits             Merit[]
   applicantQualities ApplicantQuality[]
 
+  @@index([userId])
+  @@index([jobPostingId])
   @@map("preference_sets")
 }
 
@@ -383,53 +399,24 @@ model Language {
   id String @id @default(cuid())
 
   // Koppling till kandidat eller jobb
-  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id])
+  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id], onDelete: Cascade)
   preferenceSetId String?
 
   language String
   level    String? // ex. Beginner, Intermediate, Advanced, Expert
   isNative Boolean? @default(false)
 
+  @@index([preferenceSetId])
   @@index([language])
   @@index([level])
   @@index([isNative])
   @@map("language_skills")
 }
 
-model Requirement {
-  id          String @id @default(cuid())
-  requirement String
-
-  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id])
-  preferenceSetId String?
-
-  @@map("job_posting_requirements")
-}
-
-model Merit {
-  id    String @id @default(cuid())
-  merit String
-
-  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id])
-  preferenceSetId String?
-
-  @@map("job_posting_merits")
-}
-
-model ApplicantQuality {
-  id      String @id @default(cuid())
-  quality String
-
-  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id])
-  preferenceSetId String?
-
-  @@map("job_posting_applicant_qualities")
-}
-
 model Location {
   id String @id @default(cuid())
 
-  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id])
+  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id], onDelete: Cascade)
   preferenceSetId String?
 
   city     String?
@@ -446,34 +433,69 @@ model Location {
   @@map("locations")
 }
 
+model Requirement {
+  id          String @id @default(cuid())
+  requirement String
+
+  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id], onDelete: Cascade)
+  preferenceSetId String?
+
+  @@index([preferenceSetId])
+  @@map("job_posting_requirements")
+}
+
+model Merit {
+  id    String @id @default(cuid())
+  merit String
+
+  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id], onDelete: Cascade)
+  preferenceSetId String?
+
+  @@index([preferenceSetId])
+  @@map("job_posting_merits")
+}
+
+model ApplicantQuality {
+  id      String @id @default(cuid())
+  quality String
+
+  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id], onDelete: Cascade)
+  preferenceSetId String?
+
+  @@index([preferenceSetId])
+  @@map("job_posting_applicant_qualities")
+}
+
 model WorkArrangement {
   id String @id @default(cuid())
 
-  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id])
+  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id], onDelete: Cascade)
   preferenceSetId String?
 
   mode WorkArrangementEnum
 
   @@index([mode])
+  @@index([preferenceSetId])
   @@map("work_arrangements")
 }
 
 model EmploymentType {
   id String @id @default(cuid())
 
-  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id])
+  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id], onDelete: Cascade)
   preferenceSetId String?
 
   type EmploymentEnum
 
   @@index([type])
+  @@index([preferenceSetId])
   @@map("employment_types")
 }
 
 model Salary {
   id String @id @default(cuid())
 
-  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id])
+  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id], onDelete: Cascade)
   preferenceSetId String?
 
   minAmount Float?
@@ -489,13 +511,14 @@ model Salary {
   @@index([minAmount, maxAmount])
   @@index([currency])
   @@index([period])
+  @@index([preferenceSetId])
   @@map("salaries")
 }
 
 model Benefit {
   id String @id @default(cuid())
 
-  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id])
+  preferenceSet   PreferenceSet? @relation(fields: [preferenceSetId], references: [id], onDelete: Cascade)
   preferenceSetId String?
 
   name        String
@@ -505,6 +528,7 @@ model Benefit {
   updatedAt DateTime @updatedAt
 
   @@index([name])
+  @@index([preferenceSetId])
   @@map("benefits")
 }
 
@@ -533,6 +557,7 @@ model CreatedJobPosting {
 
 /**
  * ƒ This should hold more meta data for the future to be more helpful for recruiters
+ * This table is for connecting users with job postings they have applied to
  */
 model JobApplicants {
   id           String @id @default(cuid())
@@ -544,9 +569,12 @@ model JobApplicants {
   gotJob    Boolean @default(false)
 
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Restrict)
+  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
 
   @@unique([userId, jobPostingId])
+  @@index([userId])
+  @@index([jobPostingId])
+  @@index([status])
   @@map("job_applicants")
 }
 
@@ -567,7 +595,7 @@ model UserProcess {
   steps UserProcessStep[]
 
   jobPostingId String
-  jobPosting   JobPosting? @relation(fields: [jobPostingId], references: [id])
+  jobPosting   JobPosting? @relation(fields: [jobPostingId], references: [id], onDelete: SetNull)
 
   processId String?
   process   Process? @relation(fields: [processId], references: [id], onDelete: Cascade)
@@ -575,6 +603,10 @@ model UserProcess {
   todos TodoUserProcess[]
 
   @@unique([userId, jobPostingId])
+  @@index([userId])
+  @@index([jobPostingId])
+  @@index([processId])
+  @@index([status])
   @@map("user_processes")
 }
 
@@ -596,6 +628,8 @@ model UserProcessStep {
 
   @@unique([stepId])
   @@unique([userProcessId, stepId])
+  @@index([userProcessId])
+  @@index([stepId])
   @@map("user_process_step")
 }
 
@@ -671,6 +705,8 @@ model ProcessStep {
   /// All user-specific instances of this step (one per UserJobProcess)
   userProcessSteps UserProcessStep[]
 
+  @@index([processId])
+  @@index([userId])
   @@map("process_step")
 }
 
@@ -693,6 +729,7 @@ model ActionDefinition {
   stepId String?
   step   ProcessStep? @relation(fields: [stepId], references: [id], onDelete: Cascade)
 
+  @@index([stepId])
   @@map("action_definition")
 }
 
@@ -793,6 +830,9 @@ model TriggerDefinition {
   stepId String?
   step   ProcessStep? @relation(fields: [stepId], references: [id], onDelete: Cascade)
 
+  @@index([stepId])
+  @@index([triggerCode])
+  @@index([executeAt])
   @@map("trigger_definition")
 }
 
@@ -851,6 +891,9 @@ model Todo {
   items         TodoItem[]
   userProcesses TodoUserProcess[]
 
+  @@index([userId])
+  @@index([completed])
+  @@index([dueDate])
   @@map("todos")
 }
 
@@ -862,6 +905,7 @@ model TodoItem {
   content String           @db.Text // Text content or userProcessId
   order   Int
 
+  @@index([todoId])
   @@map("todo_items")
 }
 
@@ -873,6 +917,8 @@ model TodoUserProcess {
   userProcess   UserProcess @relation(fields: [userProcessId], references: [id], onDelete: Cascade)
 
   @@unique([todoId, userProcessId])
+  @@index([todoId])
+  @@index([userProcessId])
   @@map("todo_user_processes")
 }
 
@@ -903,7 +949,9 @@ model AnalyzedRepo {
   analyseText      String?
   repoParticipants RepoParticipant[]
 
-  @@unique([repoId, repoName, repoUrl])
+  @@index(repoUrl)
+  @@index(repoName)
+  @@index([repoId, repoName, repoUrl, collectionName])
   @@map("analyzed_repos")
 }
 
@@ -927,5 +975,8 @@ model RepoParticipant {
   analyzedRepo   AnalyzedRepo? @relation(fields: [analyzedRepoId], references: [id], onDelete: SetNull)
 
   @@unique([analyzedRepoId, userId])
+  @@index([userId, analyzedRepoId], name: "idx_user_repo_unique")
+  @@index([userId])
+  @@index([analyzedRepoId])
   @@map("repo_participants")
 }

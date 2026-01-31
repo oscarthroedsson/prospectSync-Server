@@ -12,9 +12,9 @@ export const sampleJobPosting: IJobPostingDTO = {
   jobDescription: "We are looking for a senior software engineer",
   markdownText: "# Senior Software Engineer\n\nWe are looking...",
   status: "active",
-  endsAt: "2024-12-31T23:59:59Z",
-  createdAt: "2024-01-01T00:00:00Z",
-  updatedAt: "2024-01-01T00:00:00Z",
+  endsAt: new Date("2024-12-31T23:59:59Z"),
+  createdAt: new Date("2024-01-01T00:00:00Z"),
+  updatedAt: new Date("2024-01-01T00:00:00Z"),
   createdJobPosting: {
     id: "",
     jobPostingId: "",

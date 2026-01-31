@@ -53,7 +53,7 @@ export interface IApplicationDTO {
   id: string;
   jobPostingId: string;
   status: string;
-  appliedAt: string;
+  appliedAt: Date;
   gotJob: boolean;
 }
 

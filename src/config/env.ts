@@ -3,11 +3,20 @@ import dotenv from "dotenv";
 dotenv.config();
 
 console.info("🔑 Env file loaded");
+
+/*
+Use this to switch between prod and dev enviroments
+const isProd = process.env.NODE_ENV === "production";
+*/
+
 export const env = {
   // Database
   DATABASE_URL: process.env.DATABASE_URL || "",
   DATABASE_POOL_SIZE: parseInt(process.env.DATABASE_POOL_SIZE || "20", 10),
   DATABASE_POOL_TIMEOUT: parseInt(process.env.DATABASE_POOL_TIMEOUT || "10", 10),
+
+  CLIENT_URL: process.env.CLIENT_URL || "",
+
   BLUEPRINT_DB_DATABASE: process.env.BLUEPRINT_DB_DATABASE || "",
   BLUEPRINT_DB_PASSWORD: process.env.BLUEPRINT_DB_PASSWORD || "",
   BLUEPRINT_DB_USERNAME: process.env.BLUEPRINT_DB_USERNAME || "",
@@ -23,6 +32,9 @@ export const env = {
   // Server
   PORTCODE: process.env.PORTCODE || process.env.PORT || "8080",
   NODE_ENV: process.env.NODE_ENV || "development",
+
+  // NEXT
+  NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || "",
 
   // External Services
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
@@ -47,4 +59,6 @@ export const env = {
 
   QDRANT_CLUSTER_URL: process.env.QDRANT_CLUSTER_URL || "",
   QDRANT_API_KEY: process.env.QDRANT_API_KEY || "",
+
+  TRUST_PROXY: process.env.TRUST_PROXY,
 };

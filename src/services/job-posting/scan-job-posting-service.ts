@@ -61,6 +61,7 @@ export class ScanJobPostingService {
           strict: true, // Tvingar AI:n att följa schemat exakt
         },
       },
+      signal: this.abortController?.signal, // Use abort controller for timeout
     });
     console.log("✅ OpenAI API response received");
     console.log("📊 Full completion object:", JSON.stringify(completion, null, 2));

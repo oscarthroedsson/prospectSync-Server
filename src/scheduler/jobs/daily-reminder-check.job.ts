@@ -7,9 +7,16 @@ import { parseISO, isAfter } from "date-fns";
 export class DailyReminderCheck implements Job {
   private triggerService = getTriggerService();
   private bus = getEventBus();
+  private timers: Set<NodeJS.Timeout> = new Set();
 
   name(): string {
     return "DailyReminderCheck";
+  }
+
+  cleanup(): void {
+    console.log(`🧹 [DailyReminderCheck] Cleaning up ${this.timers.size} timers`);
+    this.timers.forEach((timer) => clearTimeout(timer));
+    this.timers.clear();
   }
 
   async run(): Promise<void> {
@@ -103,8 +110,8 @@ export class DailyReminderCheck implements Job {
           `⏰ [DailyReminderCheck] Scheduling trigger ${trigger.id} to execute at ${executeTime.toISOString()} (in ${delay}ms)`
         );
 
-        // Schedule in a setTimeout
-        setTimeout(() => {
+        // Schedule in a setTimeout and track it
+        const timer = setTimeout(() => {
           console.log(
             `🚀 [DailyReminderCheck] Executing scheduled trigger: ${trigger.id}`
           );
@@ -117,7 +124,12 @@ export class DailyReminderCheck implements Job {
           console.log(
             `📤 [DailyReminderCheck] Published EventReminderTrigger for scheduled trigger: ${trigger.id}`
           );
+          
+          // Remove timer from set after execution
+          this.timers.delete(timer);
         }, delay);
+        
+        this.timers.add(timer);
       } else if (isSameDay) {
         // Execute immediately (same day but time has passed)
         console.log(

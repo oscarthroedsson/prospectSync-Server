@@ -1,6 +1,7 @@
 import { Express } from "express";
 import { Server } from "http";
 import { env } from "../config";
+import { logger } from "../config/logger";
 
 export class HttpServer {
   private app: Express;
@@ -15,12 +16,12 @@ export class HttpServer {
       const port = parseInt(env.PORTCODE, 10) || 8080;
       
       this.server = this.app.listen(port, () => {
-        console.log(`🚀 [Server] HTTP server started on port ${port}`);
+        logger.info(`HTTP server started on port ${port}`);
         resolve();
       });
 
       this.server.on("error", (error: Error) => {
-        console.error("❌ [Server] Server error:", error);
+        logger.error("Server error", { error: error.message });
         reject(error);
       });
     });
@@ -33,15 +34,26 @@ export class HttpServer {
         return;
       }
 
+      const shutdownTimeout = 30000; // 30 seconds
+      const timeout = setTimeout(() => {
+        logger.warn("Graceful shutdown timeout, forcing close");
+        this.server?.closeAllConnections?.();
+        resolve();
+      }, shutdownTimeout);
+
       this.server.close((err) => {
+        clearTimeout(timeout);
         if (err) {
-          console.error("❌ [Server] Error closing server:", err);
+          logger.error("Error closing server", { error: err.message });
           reject(err);
         } else {
-          console.log("✅ [Server] Server closed");
+          logger.info("Server closed successfully");
           resolve();
         }
       });
+
+      // Close idle connections immediately
+      this.server.closeIdleConnections?.();
     });
   }
 }

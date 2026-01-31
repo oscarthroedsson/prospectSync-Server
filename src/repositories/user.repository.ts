@@ -74,32 +74,134 @@ export class UserRepository {
     return UserMapper.base(user);
   }
 
-  async show(id: string) {
+  /**
+   * Show user by ID with optional selective includes
+   * @param id User ID
+   * @param include Optional Prisma include object for selective loading
+   */
+  async show(id: string, include?: Prisma.UserInclude) {
     const user = await this.prisma.user.findUnique({
       where: { id: id },
-      include: DEFAULT_USER_INCLUDE,
+      include: include || {}, // Only include what's requested
     });
-    console.log("user: ", user);
+
     if (!user) return user;
 
-    return user ? UserMapper.db(user) : null;
+    // If no includes specified, return base user
+    if (!include || Object.keys(include).length === 0) {
+      return UserMapper.base(user as IUser);
+    }
+
+    return UserMapper.db(user);
   }
 
-  async showByEmail(email: string) {
+  /**
+   * Show user by email with optional selective includes
+   * @param email User email
+   * @param include Optional Prisma include object for selective loading
+   */
+  async showByEmail(email: string, include?: Prisma.UserInclude) {
     const user = await this.prisma.user.findUnique({
       where: { email },
+      include: include || {}, // Only include what's requested
+    });
+
+    if (!user) return user;
+
+    // If no includes specified, return base user
+    if (!include || Object.keys(include).length === 0) return UserMapper.base(user as IUser);
+
+    return UserMapper.db(user);
+  }
+
+  /**
+   * Show user with all relations (use sparingly - expensive!)
+   */
+  async showByIdFull(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
       include: DEFAULT_USER_INCLUDE,
     });
 
     return user ? UserMapper.db(user) : null;
   }
 
-  async list(): Promise<IUser[]> {
+  /**
+   * Show user with only providers (lightweight)
+   */
+  async showByIdWithProviders(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        providers: {
+          include: { token: true },
+        },
+      },
+    });
+
+    if (!user) return null;
+
+    // Map providers to DTO
+    const providers = user.providers?.map((p: any) => ({
+      id: p.id,
+      provider: String(p.provider),
+      providerAccountId: p.providerAccountId,
+      userId: p.userId,
+      token: p.token
+        ? {
+            id: p.token.id,
+            providerId: p.token.providerId,
+            access_token: p.token.access_token,
+            refresh_token: p.token.refresh_token,
+            expires_at: p.token.expires_at,
+            token_type: p.token.token_type,
+            scope: p.token.scope,
+            id_token: p.token.id_token,
+            session_state: p.token.session_state,
+          }
+        : undefined,
+    }));
+
+    return {
+      ...UserMapper.base(user as IUser),
+      providers,
+    };
+  }
+
+  // ƒ We should only have one method that includes count - we would like to keep listWithCount → re-name to list
+  /**
+   * List users with pagination
+   * @param options Pagination options
+   */
+  async list(options: { page?: number; limit?: number } = {}): Promise<IUser[]> {
+    const page = options.page || 1;
+    const limit = options.limit || 50;
+
     const users = await this.prisma.user.findMany({
+      skip: (page - 1) * limit,
+      take: limit,
       orderBy: { name: "asc" },
     });
 
     return users.map((user) => UserMapper.base(user));
+  }
+
+  /**
+   * List users with total count for pagination UI
+   */
+  async listWithCount(options: { page?: number; limit?: number } = {}) {
+    const page = options.page || 1;
+    const limit = options.limit || 50;
+
+    const [items, total] = await Promise.all([this.list(options), this.prisma.user.count()]);
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      pages: Math.ceil(total / limit),
+    };
   }
 
   async update(id: string, data: Partial<IUser>): Promise<IUser> {

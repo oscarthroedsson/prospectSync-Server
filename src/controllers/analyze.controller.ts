@@ -1,8 +1,10 @@
 import { Request, Response } from "express";
+import { randomUUID } from "crypto";
 
 import { AnalysedRepoService } from "../services/analysedRepo/analysedRepo.service";
 import { GithubService } from "../services/github/github.service";
 import { UserService } from "../services/user/user.service";
+import { getBackgroundJobTracker } from "../utils/background-job-tracker";
 
 export class AnalyzeController {
   private analysedRepoService: AnalysedRepoService;
@@ -42,21 +44,38 @@ export class AnalyzeController {
       });
       return;
     }
+    const jobId = randomUUID();
+
     res.status(202).json({
       status: "success",
-      message: "analyze job posting",
+      message: "Repository analysis started",
+      jobId,
     });
 
-    try {
-      const githubClient = new GithubService(username.login, name, userId, token.access_token as string);
+    // Track background work with BackgroundJobTracker
+    const jobTracker = getBackgroundJobTracker();
 
-      const result = await githubClient.ingestRepo();
+    jobTracker
+      .track(jobId, async (signal) => {
+        try {
+          console.info("🏁 [analyzeGithubRepo] Starting background job:", jobId);
 
-      const res = await this.analysedRepoService.create(userId, result.analyzedRepo, result.participants);
+          const githubClient = new GithubService(username.login, name, userId, token.access_token as string);
 
-      console.log("[AnalyzeController]: RES → analysedRepoService: ", res);
-    } catch (err) {
-      console.log("🚨 AnalyzeController: ", err);
-    }
+          // Check if aborted
+          if (signal.aborted) throw new Error("Job aborted during shutdown");
+
+          const result = await githubClient.ingestRepo();
+          const res = await this.analysedRepoService.create(userId, result.analyzedRepo, result.participants);
+
+          console.log("✅ [AnalyzeController]: Analysis complete →", res);
+        } catch (err) {
+          console.error("❌ [AnalyzeController] Background analysis failed:", err);
+          throw err;
+        }
+      })
+      .catch((error) => {
+        console.error("[analyze.controller] Background job failed:", error);
+      });
   }
 }

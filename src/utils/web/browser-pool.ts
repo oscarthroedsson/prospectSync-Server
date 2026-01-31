@@ -87,15 +87,16 @@ export class BrowserPool {
   }
 
   private async processQueue(): Promise<void> {
+    // TODO: Implement proper queue processing
+    // Current implementation is a placeholder
+    // Queue processing should be handled by the scraper service
     if (this.queue.length === 0) return;
-
-    const browser = await this.acquireBrowser();
-    if (!browser) return;
-
+    
     const item = this.queue.shift();
     if (!item) return;
-
+    
     clearTimeout(item.timeout);
+    // Queue processing will be implemented when scraping is refactored
   }
 
   // Create or provide a browser

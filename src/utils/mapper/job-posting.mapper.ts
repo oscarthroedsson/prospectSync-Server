@@ -20,13 +20,14 @@ export class JobPostingMapper {
    * Lägger till metadata som timestamps och createdJobPosting
    */
   static create(data: any, url: string, createdById?: string): IJobPostingCreateDTO {
-    const today = new Date().toISOString();
+    const today = new Date();
 
     return {
       ...data,
       jobPostingUrl: url,
       createdAt: today,
       updatedAt: today,
+      endsAt: data.endsAt ? new Date(data.endsAt) : null,
       createdJobPosting: {
         createdByType: "system",
         createdById: createdById,
@@ -43,12 +44,12 @@ export class JobPostingMapper {
   static update(data: Partial<IJobPostingDTO>): IJobPostingUpdateDTO {
     const updateData: IJobPostingUpdateDTO = {
       ...data,
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date(),
     };
 
     // Filtrera bort undefined values
     return Object.fromEntries(
-      Object.entries(updateData).filter(([_, value]) => value !== undefined)
+      Object.entries(updateData).filter(([_, value]) => value !== undefined),
     ) as IJobPostingUpdateDTO;
   }
 
@@ -60,6 +61,7 @@ export class JobPostingMapper {
    * - Date → ISO string konvertering
    * - Null/undefined hantering
    */
+  // This should be partial because we never know what we have included or not
   static db(prisma: IJobPostingFull): IJobPostingDTO {
     // Ta första PreferenceSet (enligt din business logic)
     const firstPrefSet = prisma.preferenceSet?.[0];
@@ -190,13 +192,15 @@ export class JobPostingMapper {
         appliedAt: ja.appliedAt,
       })),
 
-      userProcesses: prisma.userProcesses?.map((up) => ({
+      /**
+        userProcesses: prisma.userProcesses?.map((up) => ({
         id: up.id,
         userId: up.userId,
         jobPostingId: up.jobPostingId,
         status: up.status,
         updatedAt: up.updatedAt,
       })),
+       */
     };
   }
 }

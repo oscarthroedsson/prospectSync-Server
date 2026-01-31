@@ -148,9 +148,19 @@ export class GithubService {
   async ingestFile(file: IRepoFile) {
     // Get file content
     const url = await this.getRawContentUrl(file);
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Failed to fetch ${file.path}: ${response.statusText}`);
-    const content = await response.text();
+    
+    // Create abort controller for timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
+    let content: string;
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) throw new Error(`Failed to fetch ${file.path}: ${response.statusText}`);
+      content = await response.text();
+    } finally {
+      clearTimeout(timeout);
+    }
 
     // Create chunks - embedd and upload to vector DB
 
@@ -229,7 +239,13 @@ export class GithubService {
     // ☝🏼 important if the user is not the owner but a contributor
     const repoData = await this.getRepo();
     const url = `https://raw.githubusercontent.com/${repoData.owner.login}/${file.repo}/HEAD/${file.path}`;
-    const response = await fetch(url);
+    
+    // Create abort controller for timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
     if (!response.ok) throw new Error(`Failed ${file.path}`);
 
     let buffer = "";

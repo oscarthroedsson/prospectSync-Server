@@ -19,10 +19,7 @@ export class DailyJobPostingCheck implements Job {
     try {
       await this.checkExpired();
     } catch (err) {
-      console.error(
-        `❌ [DailyJobPostingCheck] Error checking expired jobs:`,
-        err
-      );
+      console.error(`❌ [DailyJobPostingCheck] Error checking expired jobs:`, err);
       // Continue to check expiring jobs even if expired check fails
     }
 
@@ -30,10 +27,7 @@ export class DailyJobPostingCheck implements Job {
     try {
       await this.checkExpiringSoon();
     } catch (err) {
-      console.error(
-        `❌ [DailyJobPostingCheck] Error checking expiring jobs:`,
-        err
-      );
+      console.error(`❌ [DailyJobPostingCheck] Error checking expiring jobs:`, err);
       throw err;
     }
 
@@ -43,14 +37,10 @@ export class DailyJobPostingCheck implements Job {
   private async checkExpired(): Promise<void> {
     const expiredJobs = await this.repo.findExpired();
 
-    console.log(
-      `📊 [DailyJobPostingCheck] Found ${expiredJobs.length} expired job posting(s)`
-    );
+    console.log(`📊 [DailyJobPostingCheck] Found ${expiredJobs.length} expired job posting(s)`);
 
     for (const job of expiredJobs) {
-      if (!job.id) {
-        continue;
-      }
+      if (!job.id) continue;
 
       // Publish event for expired job posting
       this.bus.publish({
@@ -64,9 +54,7 @@ export class DailyJobPostingCheck implements Job {
         },
       });
 
-      console.log(
-        `📤 [DailyJobPostingCheck] Published EventJobPostingExpired for job: ${job.id}`
-      );
+      console.log(`📤 [DailyJobPostingCheck] Published EventJobPostingExpired for job: ${job.id}`);
     }
   }
 
@@ -74,7 +62,7 @@ export class DailyJobPostingCheck implements Job {
     const expiringJobs = await this.repo.findExpiringSoon(this.daysAhead);
 
     console.log(
-      `📊 [DailyJobPostingCheck] Found ${expiringJobs.length} job posting(s) expiring within ${this.daysAhead} days`
+      `📊 [DailyJobPostingCheck] Found ${expiringJobs.length} job posting(s) expiring within ${this.daysAhead} days`,
     );
 
     for (const job of expiringJobs) {
@@ -94,9 +82,7 @@ export class DailyJobPostingCheck implements Job {
         },
       });
 
-      console.log(
-        `📤 [DailyJobPostingCheck] Published EventJobPostingExpiringSoon for job: ${job.id}`
-      );
+      console.log(`📤 [DailyJobPostingCheck] Published EventJobPostingExpiringSoon for job: ${job.id}`);
     }
   }
 }

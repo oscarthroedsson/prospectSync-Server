@@ -2,9 +2,11 @@ import { QdrantClient } from "@qdrant/js-client-rest";
 
 import { env } from "./env";
 
-// or connect to Qdrant Cloud
-console.log("🏡 Q cluder: ", env.QDRANT_CLUSTER_URL);
-console.log("🔑 Q key: ", env.QDRANT_API_KEY);
+// Initialize Qdrant client
+console.log("✅ Qdrant configured:", {
+  url: env.QDRANT_CLUSTER_URL,
+  hasApiKey: !!env.QDRANT_API_KEY,
+});
 
 export const QDRANTClient = new QdrantClient({
   url: env.QDRANT_CLUSTER_URL,

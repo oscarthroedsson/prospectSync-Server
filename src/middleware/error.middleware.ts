@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { logger } from "../config/logger";
 
 export function errorMiddleware(
   err: Error,
@@ -6,7 +7,11 @@ export function errorMiddleware(
   res: Response,
   _next: NextFunction
 ): void {
-  console.error("❌ [Error] Unhandled error:", err);
+  logger.error("Unhandled error", {
+    error: err.message,
+    stack: err.stack,
+    name: err.name,
+  });
 
   // Handle Prisma connection errors
   if (err.message.includes("Too many connections") || err.message.includes("P1001")) {

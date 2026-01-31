@@ -9,31 +9,34 @@ import { HttpServer } from "./server/server";
 import { createApp } from "./server/app";
 import { startAllListeners } from "./listeners";
 import { registerRoutes } from "./router";
+import { ProcessErrorHandler } from "./utils/process-error-handler";
+import { getBackgroundJobTracker } from "./utils/background-job-tracker";
+import { logger } from "./config/logger";
 
 async function main() {
-  console.log("🚀 [Main] Starting application...");
+  logger.info("Starting application...");
 
   // Initialize event bus
   const bus = getEventBus();
-  console.log("✅ [Main] Event bus initialized");
+  logger.info("Event bus initialized");
 
   // Start all event listeners
   startAllListeners(bus);
-  console.log("✅ [Main] Event listeners started");
+  logger.info("Event listeners started");
 
   // Setup and start cron jobs
   const scheduler = new Scheduler();
 
   const dailyJobPostingCheck = new DailyJobPostingCheck();
   scheduler.addJob(dailyJobPostingCheck);
-  console.log("✅ [Main] Daily job posting check job added");
+  logger.info("Daily job posting check job added");
 
   const dailyReminderCheck = new DailyReminderCheck();
   scheduler.addJob(dailyReminderCheck);
-  console.log("✅ [Main] Daily reminder check job added");
+  logger.info("Daily reminder check job added");
 
   scheduler.start();
-  console.log("✅ [Main] Scheduler started with all cron jobs");
+  logger.info("Scheduler started with all cron jobs");
 
   // Create Express app
   const app = createApp();
@@ -51,17 +54,25 @@ async function main() {
   // Create HTTP server
   const httpServer = new HttpServer(app);
 
-  // Graceful shutdown
-  const shutdown = async (signal: string) => {
-    console.log(`🛑 [Shutdown] ${signal} received, shutting down gracefully...`);
+  // Graceful shutdown function
+  const gracefulShutdown = async () => {
+    logger.info("Shutting down gracefully...");
 
-    // Stop scheduler
-    scheduler.stop();
+    // Wait for background jobs to complete
+    const jobTracker = getBackgroundJobTracker();
+    await jobTracker.gracefulShutdown(30000);
+
+    // Stop scheduler and wait for running jobs
+    await scheduler.stop();
+
+    // Cleanup event bus
+    bus.cleanup();
+    logger.info("Event bus cleaned up");
 
     // Close browser pool
     const browserPool = getBrowserPool();
     await browserPool.closeAll();
-    console.log("✅ [Shutdown] Browser pool closed");
+    logger.info("Browser pool closed");
 
     // Close HTTP server
     await httpServer.stop();
@@ -69,22 +80,22 @@ async function main() {
     // Disconnect database
     await disconnectDatabase();
 
-    console.log("✅ [Shutdown] Graceful shutdown complete");
-    process.exit(0);
+    logger.info("Graceful shutdown complete");
   };
 
-  process.on("SIGINT", () => shutdown("SIGINT"));
-  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  // Register process error handlers
+  const errorHandler = new ProcessErrorHandler();
+  errorHandler.register(gracefulShutdown);
 
   // Start HTTP server
   await httpServer.start();
-  console.log("✅ [Main] Application started successfully");
+  logger.info("Application started successfully");
 
   // emptyQdrantCollection();
 }
 
 // Run main function
 main().catch((error) => {
-  console.error("❌ [Main] Fatal error:", error);
+  logger.error("Fatal error", { error: error.message, stack: error.stack });
   process.exit(1);
 });

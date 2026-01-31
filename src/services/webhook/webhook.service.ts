@@ -49,18 +49,27 @@ export class WebhookSession {
     mac.update(body);
     const signature = `sha256=${mac.digest("hex")}`;
 
-    const response = await fetch(this.fullURL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-webhook-signature": signature,
-      },
-      body,
-    });
+    // Create abort controller for timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`webhook ${response.status}: ${errorText}`);
+    try {
+      const response = await fetch(this.fullURL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-webhook-signature": signature,
+        },
+        body,
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`webhook ${response.status}: ${errorText}`);
+      }
+    } finally {
+      clearTimeout(timeout);
     }
   }
 

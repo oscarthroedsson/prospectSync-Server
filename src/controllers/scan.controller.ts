@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { randomUUID } from "crypto";
 
 import { ScanJobPostingService } from "../services/job-posting/scan-job-posting-service";
 import { getJobPostingService } from "../services/job-posting/job-posting.service";
@@ -6,6 +7,7 @@ import { WebhookService } from "../services/webhook/webhook.service";
 import { JobPostingMapper } from "../utils/mapper/job-posting.mapper";
 import { extractTextFromPDF } from "../utils/pdf/pdf-parser";
 import { WebhookEvent, WebhookType } from "../Types/webhook.types";
+import { getBackgroundJobTracker } from "../utils/background-job-tracker";
 
 export class ScanController {
   /**
@@ -92,44 +94,54 @@ export class ScanController {
       /*
       send res that we have started but the code below should run even if we send res
       */
+      const jobId = randomUUID();
+
       res.status(202).json({
         status: "accepted",
         message: "Scanning started, you'll be notified via webhook when complete",
         url,
+        jobId,
       });
 
-      // 🔥 Fire n Forget
-      hook.start("Starting scanning of the job posting");
-      (async () => {
+      // Track background work with BackgroundJobTracker
+      const jobTracker = getBackgroundJobTracker();
+      
+      jobTracker.track(jobId, async (signal) => {
         try {
-          console.info("🏁🔥 [scanJobPosting] Starting fire n forget");
-          // AI operation can take long time, send error if it takes to long time
+          await hook.start("Starting scanning of the job posting");
+          console.info("🏁🔥 [scanJobPosting] Starting background job:", jobId);
 
           console.log("⏱️ Starting job scan timer...");
           console.time("JobScanTimer");
 
           const scannedJobPosting = await scanner.start();
+          
+          // Check if aborted
+          if (signal.aborted) {
+            throw new Error("Job aborted during shutdown");
+          }
+
           const jobPosting = JobPostingMapper.create(scannedJobPosting, url, userID);
           console.log("🎯 Parsed result:", JSON.stringify(jobPosting, null, 2));
-          console.timeEnd("JobScanTimer"); // loggar tid sedan start
+          console.timeEnd("JobScanTimer");
           console.log("✅ Job scan completed!");
 
-          hook.success(jobPosting, "You job posting was successfully scanned");
+          await hook.success(jobPosting, "Your job posting was successfully scanned");
 
           // Upload it to the DB
           /*
-        → HANDLE db from BE in the future
-        const jobPostingService = new JobPostingService();
-        const data = await jobPostingService.create(scannedJobPosting);
-        */
+          → HANDLE db from BE in the future
+          const jobPostingService = new JobPostingService();
+          const data = await jobPostingService.create(scannedJobPosting);
+          */
         } catch (err) {
           console.error("❌ Background scan error:", err);
           await scanner.stop();
+          await hook.error("Something went wrong with the scanning");
           throw err;
         }
-      })().catch((error) => {
-        console.error("[scan.controller] scanJobPosting: ", error);
-        hook.error("Something went wrong with the scanning");
+      }).catch((error) => {
+        console.error("[scan.controller] Background job failed:", error);
       });
     } catch (error: any) {
       console.error("❌ [ScanController] Job posting scan error:", error);

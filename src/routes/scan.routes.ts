@@ -4,6 +4,8 @@ import { upload } from "../middleware/file-upload.middleware";
 import { userScanRateLimiter, scanRateLimiter } from "../middleware/rate-limit.middleware";
 import { scanJobPostingValidation } from "../middleware/validation.middleware";
 import { scanTimeout } from "../middleware/timeout.middleware";
+import { requireAuth } from "../middleware/auth.middleware";
+import { validateScanRepo } from "../schemas/validation/scan.schema";
 
 const router = Router();
 const scanController = new ScanController();
@@ -11,6 +13,9 @@ const scanController = new ScanController();
 // Apply scan timeout (60s) to all scan routes
 // Note: scanTimeout already handles timeout, no need for separate timeoutHandler
 router.use(scanTimeout);
+
+// Apply auth to all scan routes
+router.use(requireAuth);
 
 // Apply both user-based and IP-based rate limiters (only one will apply based on x-user-id header)
 router.post("/document", upload.single("file"), userScanRateLimiter, scanRateLimiter, (req: Request, res: Response) =>
@@ -21,6 +26,6 @@ router.post("/job-posting", scanJobPostingValidation, userScanRateLimiter, scanR
   scanController.scanJobPosting(req, res)
 );
 
-router.post("/repo", (req: Request, res: Response) => scanController.scanRepo(req, res));
+router.post("/repo", validateScanRepo, (req: Request, res: Response) => scanController.scanRepo(req, res));
 
 export default router;

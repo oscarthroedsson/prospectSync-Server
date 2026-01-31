@@ -9,9 +9,9 @@ export interface IJobPostingDTO {
   jobDescription: string;
   markdownText: string;
   status: string;
-  endsAt?: string | null;
-  createdAt: string;
-  updatedAt: string;
+  endsAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
   createdJobPosting?: ICreatedJobPostingDTO | null;
   company?: ICompanyDTO | null;
   preferenceSet?: IPreferenceSetDTO;
@@ -199,7 +199,7 @@ export interface IJobApplicantDTO {
   id: string;
   userId: string;
   jobPostingId: string;
-  appliedAt: string;
+  appliedAt: Date;
 }
 
 export type IJobApplicantCreateDTO = Omit<IJobApplicantDTO, "id">;
